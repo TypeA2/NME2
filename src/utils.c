@@ -124,6 +124,11 @@ bool CheckFileSignature(fpath path, char sig[]) {
     }
 
     fclose(file);
+    
+    // For some reason the returned signature length is too large sometimes. We truncate it like this
+    if (strlen(signature) > SIGNATURE_SIZE) {
+        *(signature + SIGNATURE_SIZE) = '\0';
+    }
 
     bool success = strcmp(signature, sig) == 0;
 
