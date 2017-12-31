@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <io.h>
+#include <stdint.h>
 #include <sys/stat.h>
+#include <setjmp.h>
 
 // Yes this is stolen from Qt
 #define UNUSED(x) (void)x
@@ -13,7 +15,7 @@
 #define TRIM(c) realloc(c, strlen(c))
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 2
+#define VERSION_MINOR 4
 
 #define PATH_INV    0
 #define PATH_DIR    1
@@ -26,6 +28,7 @@
 
 #define FORMAT_NIL 0
 #define FORMAT_USM 1
+#define FORMAT_WSP 2
 
 #define VP9_LIB     "libvpx-vp9"
 #define H265_LIB    "libx265"
@@ -39,6 +42,10 @@
 #define CMD_BASE_VIDEO "ffmpeg -hide_banner -v fatal -stats -f mpegvideo -i \"%s\" -an -c:v %s %s %s -threads %i %s -y \"%s\""
 
 #define CMD_MAX_LENGTH 0x1FFF
+
+
+#define OFFSET_OFFSET   71991
+#define CODEBOOK_COUNT  599
 
 typedef unsigned char format;
 typedef unsigned char path_t;
@@ -75,3 +82,5 @@ typedef struct VersionInfo {
     int MINOR;
     char BUILD_TIME[sizeof __TIMESTAMP__];
 } VersionInfo;
+
+extern const unsigned char pcb[];

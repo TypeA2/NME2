@@ -235,11 +235,19 @@ char* ConstructCommand(File* file) {
 
     free(info);
 
-    sprintf_s(cmd, CMD_MAX_LENGTH, CMD_BASE_VIDEO,
-        MakePath(file->input), file->args.video_args.encoder, 
-        file->args.video_args.quality, file->args.video_args.filters, 
-        thread_count, file->args.video_args.format, MakePath(file->output));
+    switch (file->format) {
+        case FORMAT_USM:
+            sprintf_s(cmd, CMD_MAX_LENGTH, CMD_BASE_VIDEO,
+                MakePath(file->input), file->args.video_args.encoder,
+                file->args.video_args.quality, file->args.video_args.filters,
+                thread_count, file->args.video_args.format, MakePath(file->output));
+            break;
+        default:
+            perrf("Unknown format %i", file->format);
 
+            exit(1);
+    }
+    
     cmd = TRIM(cmd);
 
     return cmd;
@@ -248,11 +256,11 @@ char* ConstructCommand(File* file) {
 void WriteToLog(const char* str) {
     FILE* log;
     SYSTEMTIME t;
-    char* msg = malloc(29 + strlen(str));
+    char* msg = malloc(30 + strlen(str));
 
     GetSystemTime(&t);
 
-    sprintf_s(msg, 29 + strlen(str), "[%04d-%d-%d %02d:%02d:%02d:%03d]: %s\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, str);
+    sprintf_s(msg, 30 + strlen(str), "\n[%04d-%d-%d %02d:%02d:%02d:%03d]: %s\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, str);
     msg = TRIM(msg);
 
     fopen_s(&log, "conversion.log", "a");
@@ -266,7 +274,15 @@ format GetFileFormat(const fpath path) {
             return FORMAT_USM;
         } else {
             perrf("Incomplete format for '%s'", MakePath(path));
-            
+
+            exit(1);
+        }
+    } else if(strcmp(path.ext, ".wsp") == 0){
+        if (CheckFileSignature(path, "RIFF")) {
+            return FORMAT_WSP;
+        } else {
+            perrf("Incomplete format for '%s'", MakePath(path));
+
             exit(1);
         }
     } else {

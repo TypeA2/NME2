@@ -44,3 +44,4 @@ void WriteToLog(const char* str);
 
 // Check if we support the given file and set the format
 format GetFileFormat(const fpath path);
+
