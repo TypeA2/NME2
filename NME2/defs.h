@@ -7,7 +7,6 @@
 #include <io.h>
 #include <stdint.h>
 #include <sys/stat.h>
-#include <setjmp.h>
 
 // Yes this is stolen from Qt
 #define UNUSED(x) (void)x
@@ -15,7 +14,7 @@
 #define TRIM(c) realloc(c, strlen(c))
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 4
+#define VERSION_MINOR 5
 
 #define PATH_INV    0
 #define PATH_DIR    1
@@ -30,19 +29,41 @@
 #define FORMAT_USM 1
 #define FORMAT_WSP 2
 
-#define VP9_LIB     "libvpx-vp9"
-#define H265_LIB    "libx265"
-#define H264_LIB    "libx264"
-#define VIDEO_LIB_FALLBACK H264_LIB
+#define VP9_CODEC     "libvpx-vp9"
+#define H265_CODEC    "libx265"
+#define H264_CODEC    "libx264"
+#define VIDEO_CODEC_FALLBACK H264_CODEC
+
+#define FLAC_CODEC    "flac"
+#define OPUS_CODEC    "libopus"
+#define VORBIS_CODEC  "libvorbis"
+#define AAC_CODEC     "aac"
+#define MP3_CODEC     "libmp3lame"
+#define PCM_F32_CODEC "pcm_f32le"
+#define PCM_F64_CODEC "pcm_f64le"
+#define PCM_S16_CODEC "pcm_s16le"
+#define PCM_S24_CODEC "pcm_s24le"
+#define PCM_S32_CODEC "pcm_s32le"
+#define PCM_S64_CODEC "pcm_s64le"
+#define AUDIO_CODEC_FALLBACK FLAC_CODEC
+
+#define FLAC_FALLBACK_SAMPLE_FMT "-sample_size s16"
+#define MP3_FALLBACK_SAMPLE_FMT  "-sample_size s16p"
 
 #define VIDEO_QUALITY_FALLBACK_VP9  "-crf 24 -b:v 0"
 #define VIDEO_QUALITY_FALLBACK_H264 "-crf 18"
 #define VIDEO_QUALITY_FALLBACK_H265 "-crf 21"
 
+#define AUDIO_QUALITY_FALLBACK_FLAC   "-compression_level 9"
+#define AUDIO_QUALITY_FALLBACK_OPUS   "-b:a 320k"
+#define AUDIO_QUALITY_FALLBACK_VORBIS "-b:a 320k"
+#define AUDIO_QUALITY_FALLBACK_AAC    "-b:a 320k"
+#define AUDIO_QUALITY_FALLBACK_MP3    "-b:a 320k"
+
 #define CMD_BASE_VIDEO "ffmpeg -hide_banner -v fatal -stats -f mpegvideo -i \"%s\" -an -c:v %s %s %s -threads %i %s -y \"%s\""
+#define CMD_BASE_AUDIO "ffmpeg -hide_banner -v fatal -i - -c:a copy -f ogg - | revorb - - | ffmpeg -hide_banner -v fatal -stats -i - -c:a %s %s %s -threads %i -y \"%s\""
 
 #define CMD_MAX_LENGTH 0x1FFF
-
 
 #define OFFSET_OFFSET   71991
 #define CODEBOOK_COUNT  599
@@ -66,8 +87,15 @@ typedef struct VideoArgs {
     char* format;
 } VideoArgs;
 
+typedef struct AudioArgs {
+    char* encoder;
+    char* quality;
+    char* sample_fmt;
+} AudioArgs;
+
 typedef union Args {
     VideoArgs video_args;
+    AudioArgs audio_args;
 } Args;
 
 typedef struct File {

@@ -242,8 +242,14 @@ char* ConstructCommand(File* file) {
                 file->args.video_args.quality, file->args.video_args.filters,
                 thread_count, file->args.video_args.format, MakePath(file->output));
             break;
+        case FORMAT_WSP:
+            sprintf_s(cmd, CMD_MAX_LENGTH, CMD_BASE_AUDIO,
+                file->args.audio_args.encoder, file->args.audio_args.quality,
+                file->args.audio_args.sample_fmt, thread_count,
+                MakePath(file->output));
+            break;
         default:
-            perrf("Unknown format %i", file->format);
+            perrf("Unknown format %i\n%s\n%s\n", file->format, MakePath(file->input), MakePath(file->output));
 
             exit(1);
     }
@@ -269,7 +275,7 @@ void WriteToLog(const char* str) {
 }
 
 format GetFileFormat(const fpath path) {
-    if (strcmp(path.ext, ".usm") == 0) {
+    if (_stricmp(path.ext, ".usm") == 0) {
         if (CheckFileSignature(path, "CRID")) {
             return FORMAT_USM;
         } else {
@@ -277,7 +283,7 @@ format GetFileFormat(const fpath path) {
 
             exit(1);
         }
-    } else if(strcmp(path.ext, ".wsp") == 0){
+    } else if(_stricmp(path.ext, ".wsp") == 0 || _stricmp(path.ext, ".wem") == 0){
         if (CheckFileSignature(path, "RIFF")) {
             return FORMAT_WSP;
         } else {
