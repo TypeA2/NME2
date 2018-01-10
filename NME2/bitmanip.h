@@ -8,7 +8,7 @@
 #define SEGMENT_SIZE 255
 
 // Variable width unsigned integer
-typedef struct uint_var {
+typedef struct {
     // The value to represent
     uint32_t value;
 
@@ -16,7 +16,7 @@ typedef struct uint_var {
     uint64_t n_bits;
 } uint_var;
 
-typedef struct ogg_output_stream {
+typedef struct {
     // Final output stream
     FILE* out_stream;
 
@@ -38,7 +38,7 @@ typedef struct ogg_output_stream {
 } ogg_output_stream;
 
 // A Vorbis packet
-typedef struct Packet {
+typedef struct {
     // The packet's offset
     long offset;
 
@@ -50,7 +50,7 @@ typedef struct Packet {
 } Packet;
 
 // A file-like buffer stored in memory
-typedef struct membuf {
+typedef struct {
     // The buffer's data
     char* data;
 
@@ -62,7 +62,7 @@ typedef struct membuf {
 } membuf;
 
 // A wrapper to read individual bits from a membuf into variable width integers
-typedef struct bit_stream {
+typedef struct {
     // Underlying buffer
     membuf* data;
 
@@ -77,7 +77,7 @@ typedef struct bit_stream {
 } bit_stream;
 
 // Codebook library
-typedef struct codebook_library {
+typedef struct {
     // Pointers to the codebook data
     char* codebook_data;
 
@@ -91,17 +91,59 @@ typedef struct codebook_library {
 // Splits the char* at the given delimiter, and returns the index
 uint64_t split_bytes(char* search, uint64_t search_len, char* delimiter, uint64_t delimiter_len, uint64_t start);
 
+// Reads 8 bits from a file
+uint8_t read_8_fs(FILE* f);
+
 // Reads 16 bits from a buffer
 uint16_t read_16_buf(unsigned char b[2]);
+
+// Reads 16 bits from a buffer (Big-endian)
+uint16_t read_16_buf_be(unsigned char b[2]);
 
 // Reads 16 bits from a membuf struct
 uint16_t read_16_membuf(membuf* buf);
 
+// Reads 16 bits from a file (Big-endian)
+uint16_t read_16_fs_be(FILE* f);
+
 // Reads 32 bits from a buffer
 uint32_t read_32_buf(unsigned char b[4]);
 
+// Reads 32 bits from a buffer (Big-endian)
+uint32_t read_32_buf_be(unsigned char b[4]);
+
 // Reads 32 bits from a membuf struct
 uint32_t read_32_membuf(membuf* buf);
+
+// Reads 32 bits from a file
+uint32_t read_32_fs(FILE* f);
+
+// Reads 32 bits from a file (Big-endian)
+uint32_t read_32_fs_be(FILE* f);
+
+// Reads 64 bits from a buffer
+uint64_t read_64_buf(unsigned char b[8]);
+
+// Reads 64 bits from a buffer (Big-endian)
+uint64_t read_64_buf_be(unsigned char b[8]);
+
+// Reads 64 bits fom a file
+uint64_t read_64_fs(FILE* f);
+
+// Reads 64 bits from a file (Big-endian);
+uint64_t read_64_fs_be(FILE* file);
+
+// Writes 16 bits to the buffer
+void write_16_buf(unsigned char b[2], uint16_t v);
+
+// Writes 16 bits to the file
+void write_16_fs(FILE* f, uint16_t v);
+
+// Writes 32 bits to the buffer
+void write_32_buf(unsigned char b[4], uint32_t v);
+
+// Writes 32 bits to the file
+void write_32_fs(FILE* f, uint32_t v);
 
 // Creates a uint_var with value v and size bit_size
 uint_var new_uint_var(uint32_t v, uint64_t bit_size);
@@ -120,9 +162,6 @@ void flush_bits(ogg_output_stream* os);
 
 // Flushes all bits to the output stream
 void flush_page(ogg_output_stream* os, bool next_continued, bool last);
-
-// Writes 32 bits to the specified buffer
-void write_32(unsigned char b[4], uint32_t v);
 
 // Calculates the CRC32 checksum of the data in buffer, with size bytes
 uint32_t checksum(unsigned char* data, int bytes);
@@ -156,6 +195,12 @@ int ilog(unsigned int v);
 
 // _book_maptype1_quantvals function from the Vorbis Tremor codec
 unsigned int _book_maptype1_quantvals(unsigned int entries, unsigned int dimensions);
+
+// Creates a new membuf struct
+membuf new_membuf();
+
+// Writes el_szie * el_count bytes from data to buf
+void membuf_write(membuf* buf, char* data, uint64_t el_size, uint64_t el_count);
 
 // Extracts a single character from the stream
 int membufgetc(membuf* buf);

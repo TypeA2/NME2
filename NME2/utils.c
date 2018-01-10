@@ -53,7 +53,7 @@ path_t ResolveFullpath(char* buf, const char* path) {
 
         DWORD attr = GetFileAttributes(path_w);
         
-        //free(path_w);
+        free(path_w);
 
         if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
             // Append a backslash if there's not one already
@@ -135,26 +135,6 @@ bool CheckFileSignature(fpath path, char sig[]) {
     free(signature);
 
     return success;
-}
-
-char* GetOption(char opt[], int argc, char* argv[]) {
-    for (int i = 2; i < argc; i++) {
-        if (strcmp(opt, argv[i]) == 0) {
-            return argv[i + 1];
-        }
-    }
-
-    return NULL;
-}
-
-bool OptionExists(char opt[], int argc, char* argv[]) {
-    for (int i = 2; i < argc; i++) {
-        if (strcmp(opt, argv[i]) == 0) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 int LongestStrlen(const int n,  ...) {
@@ -283,9 +263,17 @@ format GetFileFormat(const fpath path) {
 
             exit(1);
         }
-    } else if(_stricmp(path.ext, ".wsp") == 0 || _stricmp(path.ext, ".wem") == 0){
+    } else if (_stricmp(path.ext, ".wsp") == 0 || _stricmp(path.ext, ".wem") == 0) {
         if (CheckFileSignature(path, "RIFF")) {
             return FORMAT_WSP;
+        } else {
+            perrf("Incomplete format for '%s'", MakePath(path));
+
+            exit(1);
+        }
+    } else if(_stricmp(path.ext, ".cpk") == 0){
+        if (CheckFileSignature(path, "CPK ")) {
+            return FORMAT_CPK;
         } else {
             perrf("Incomplete format for '%s'", MakePath(path));
 

@@ -13,9 +13,25 @@ uint64_t split_bytes(char* search, uint64_t search_len, char* delimiter, uint64_
     return (pointer == 0) ? 0 : pointer - 1;
 }
 
+uint8_t read_8_fs(FILE* f) {
+    unsigned char b[1];
+    fread_s(b, 1, 1, 1, f);
+    return b[0];
+}
+
 uint16_t read_16_buf(unsigned char b[2]) {
     uint16_t v = 0;
     for (int i = 1; i >= 0; i--) {
+        v <<= 8;
+        v |= b[i];
+    }
+
+    return v;
+}
+
+uint16_t read_16_buf_be(unsigned char b[2]) {
+    uint16_t v = 0;
+    for (int i = 0; i < 2; i++) {
         v <<= 8;
         v |= b[i];
     }
@@ -29,9 +45,25 @@ uint16_t read_16_membuf(membuf* buf) {
     return val;
 }
 
+uint16_t read_16_fs_be(FILE* f) {
+    char* output = malloc(2);
+    fread_s(output, 2, 1, 2, f);
+    return read_16_buf_be(output);
+}
+
 uint32_t read_32_buf(unsigned char b[4]) {
     uint32_t v = 0;
     for (int i = 3; i >= 0; i--) {
+        v <<= 8;
+        v |= b[i];
+    }
+
+    return v;
+}
+
+uint32_t read_32_buf_be(unsigned char b[4]) {
+    uint32_t v = 0;
+    for (int i = 0; i < 4; i++) {
         v <<= 8;
         v |= b[i];
     }
@@ -43,6 +75,76 @@ uint32_t read_32_membuf(membuf* buf) {
     uint32_t val = read_32_buf(&buf->data[buf->pos]);
     buf->pos += 4;
     return val;
+}
+
+uint32_t read_32_fs(FILE* f) {
+    char* output = malloc(4);
+    fread_s(output, 4, 1, 4, f);
+    return read_32_buf(output);
+}
+
+uint32_t read_32_fs_be(FILE* f) {
+    char* output = malloc(4);
+    fread_s(output, 4, 1, 4, f);
+    return read_32_buf_be(output);
+}
+
+uint64_t read_64_buf(unsigned char b[8]) {
+    uint64_t v = 0;
+    for (int i = 7; i >= 0; i--) {
+        v <<= 8;
+        v |= b[i];
+    }
+
+    return v;
+}
+
+uint64_t read_64_buf_be(unsigned char b[8]) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; i++) {
+        v <<= 8;
+        v |= b[i];
+    }
+
+    return v;
+}
+
+uint64_t read_64_fs(FILE* f) {
+    char* output = malloc(8);
+    fread_s(output, 8, 1, 8, f);
+    return read_64_buf(output);
+}
+
+uint64_t read_64_fs_be(FILE* f) {
+    char* output = malloc(8);
+    fread_s(output, 8, 1, 8, f);
+    return read_64_buf_be(output);
+}
+
+void write_16_buf(unsigned char b[2], uint16_t v) {
+    for (int i = 0; i < 2; i++) {
+        b[i] = v & 0xFF;
+        v >>= 8;
+    }
+}
+
+void write_16_fs(FILE* f, uint16_t v) {
+    unsigned char buf[2];
+    write_16_buf(buf, v);
+    fwrite(buf, 1, 2, f);
+}
+
+void write_32_buf(unsigned char b[4], uint32_t v) {
+    for (int i = 0; i < 4; i++) {
+        b[i] = v & 0xFF;
+        v >>= 8;
+    }
+}
+
+void write_32_fs(FILE* f, uint32_t v) {
+    unsigned char buf[4];
+    write_32_buf(buf, v);
+    fwrite(buf, 1, 4, f);
 }
 
 uint_var new_uint_var(uint32_t v, uint64_t bit_size) {
@@ -120,14 +222,14 @@ void flush_page(ogg_output_stream* os, bool next_continued, bool last) {
         os->page_buffer[3] = 'S';
         os->page_buffer[4] = '\0';
         os->page_buffer[5] = (os->continued ? 1 : 0) | (os->first ? 2 : 0) | (last ? 4 : 0);
-        write_32(&os->page_buffer[6], os->granule);
-        write_32(&os->page_buffer[10], 0);
+        write_32_buf(&os->page_buffer[6], os->granule);
+        write_32_buf(&os->page_buffer[10], 0);
         if (os->granule == UINT32_C(0xFFFFFFFF)) {
-            write_32(&os->page_buffer[10], UINT32_C(0xFFFFFFFF));
+            write_32_buf(&os->page_buffer[10], UINT32_C(0xFFFFFFFF));
         }
-        write_32(&os->page_buffer[14], 1);
-        write_32(&os->page_buffer[18], os->seqno);
-        write_32(&os->page_buffer[22], 0);
+        write_32_buf(&os->page_buffer[14], 1);
+        write_32_buf(&os->page_buffer[18], os->seqno);
+        write_32_buf(&os->page_buffer[22], 0);
         os->page_buffer[26] = segments;
 
         for (unsigned int i = 0, bytes_left = os->payload_bytes; i < segments; i++) {
@@ -139,7 +241,7 @@ void flush_page(ogg_output_stream* os, bool next_continued, bool last) {
             }
         }
 
-        write_32(&os->page_buffer[22], checksum(os->page_buffer, HEADER_BYTES + segments + os->payload_bytes));
+        write_32_buf(&os->page_buffer[22], checksum(os->page_buffer, HEADER_BYTES + segments + os->payload_bytes));
 
         for (unsigned int i = 0; i < 27 + segments + os->payload_bytes; i++) {
             fputc(os->page_buffer[i], os->out_stream);
@@ -149,13 +251,6 @@ void flush_page(ogg_output_stream* os, bool next_continued, bool last) {
         os->first = false;
         os->continued = next_continued;
         os->payload_bytes = 0;
-    }
-}
-
-void write_32(unsigned char b[4], uint32_t v) {
-    for (int i = 0; i < 4; i++) {
-        b[i] = v & 0xFF;
-        v >>= 8;
     }
 }
 
@@ -349,6 +444,39 @@ unsigned int _book_maptype1_quantvals(unsigned int entries, unsigned int dimensi
             }
         }
     }
+}
+
+membuf new_membuf() {
+    membuf buf;
+    buf.data = '\0';
+    buf.size = 0;
+    buf.pos = 0;
+
+    return buf;
+}
+
+void membuf_write(membuf* buf, char* data, uint64_t el_size, uint64_t el_count) {
+    if (el_size < 1) {
+        perrf("No data is smaller than 1 byte\n");
+
+        exit(1);
+    }
+
+    if (el_count < 1) {
+        perrf("Can't write 0 bytes");
+
+        exit(1);
+    }
+
+    perrf("\ndumping\n");
+    buf->data = realloc(buf->data, el_size * el_count);
+    perrf("...\n");
+    for (uint64_t i = 0; i < el_size * el_count; i++) {
+        
+        buf->data[buf->pos] = data[i];
+        buf->pos += 1;
+    }
+    perrf("dumped\n");
 }
 
 int membufgetc(membuf* buf) {

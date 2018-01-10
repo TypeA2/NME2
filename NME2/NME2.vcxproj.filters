@@ -26,6 +26,9 @@
     <ClCompile Include="pcb.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="criware.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="defs.h">
@@ -44,6 +47,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="wwriff.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="criware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

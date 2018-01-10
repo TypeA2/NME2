@@ -20,12 +20,6 @@ yn_response ConfirmOverwrite(const fpath path, bool multi);
 // Checks if the file's signature corresponds to the given input
 bool CheckFileSignature(fpath path, char sig[]);
 
-// Get a specified command line argument
-char* GetOption(char opt[], int argc, char* argv[]);
-
-// Check if a specified command line argument exists
-bool OptionExists(char opt[], int argc, char* argv[]);
-
 // Returns the length of the longest string passed as argument
 int LongestStrlen(const int n, ...);
 

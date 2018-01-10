@@ -4,9 +4,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <io.h>
 #include <stdint.h>
+#include <io.h>
+#include <direct.h>
 #include <sys/stat.h>
+
 
 // Yes this is stolen from Qt
 #define UNUSED(x) (void)x
@@ -28,6 +30,7 @@
 #define FORMAT_NIL 0
 #define FORMAT_USM 1
 #define FORMAT_WSP 2
+#define FORMAT_CPK 3
 
 #define VP9_CODEC     "libvpx-vp9"
 #define H265_CODEC    "libx265"
@@ -72,14 +75,14 @@ typedef unsigned char format;
 typedef unsigned char path_t;
 typedef unsigned char yn_response;
 
-typedef struct fpath {
+typedef struct {
     char drive[_MAX_DRIVE];
     char dir[_MAX_DIR];
     char fname[_MAX_FNAME];
     char ext[_MAX_EXT];
 } fpath;
 
-typedef struct VideoArgs {
+typedef struct {
     char* output;
     char* encoder;
     char* quality;
@@ -87,25 +90,25 @@ typedef struct VideoArgs {
     char* format;
 } VideoArgs;
 
-typedef struct AudioArgs {
+typedef struct {
     char* encoder;
     char* quality;
     char* sample_fmt;
 } AudioArgs;
 
-typedef union Args {
+typedef union {
     VideoArgs video_args;
     AudioArgs audio_args;
 } Args;
 
-typedef struct File {
+typedef struct {
     fpath input;
     fpath output;
     format format;
     Args args;
 } File;
 
-typedef struct VersionInfo {
+typedef struct {
     int MAJOR;
     int MINOR;
     char BUILD_TIME[sizeof __TIMESTAMP__];
