@@ -18,20 +18,26 @@ class CripackReader {
 
         //std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon> file_icons);
         //std::vector<std::string> tocs();
+        std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon> icons) { Q_UNUSED(icons); return std::vector<QStandardItem*>(); }
 
     private:
         //std::map<uint32_t, QIcon> file_icons;
-        typedef union UTFRowValues {
+        union UTFRowValues {
+            //UTFRowValues() { }
+            //~UTFRowValues() { }
+
             uint8_t  v8;
             uint16_t v16;
             uint32_t v32;
             uint64_t v64;
             char*    data;
             float    vfloat;
-            std::string vstring;
-        } UTFRowValues;
+            //std::string vstring;
+            char* vstring;
+        };
 
         struct EmbeddedFile {
+            EmbeddedFile() { }
             EmbeddedFile(std::string file_name, uint64_t file_offset, uint64_t file_offset_pos, std::string toc_name, std::string file_type) :
                 file_name(file_name),
                 file_offset(file_offset),
@@ -58,7 +64,7 @@ class CripackReader {
 
         struct UTFColumn {
             char flags;
-            std::string name;
+            char* name;
         };
 
         struct UTFRow {
@@ -120,7 +126,7 @@ class CripackReader {
 
         std::ifstream infile;
         std::vector<EmbeddedFile> file_table;
-        std::unordered_map<std::string, UTFRowValues> cpkdata;
+        std::map<std::string, UTFRowValues> cpkdata;
 
         uint32_t unk1;
         uint64_t utf_size;
@@ -136,7 +142,8 @@ class CripackReader {
         UTF* utf;
 
         UTFRowValues get_column_data(uint32_t row, std::string name);
-        uint64_t get_column_position(row, std::string name);
+        uint64_t get_column_position(uint32_t row, std::string name);
+
         /*uint64_t toc_entries;
         char* toc_strtbl;
         uint64_t toc_offset;

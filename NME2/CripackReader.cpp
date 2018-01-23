@@ -8,7 +8,9 @@ item->setData(QVariant::fromValue(this), 259); \
 item->setData("Cripack", 260);*/
 
 CripackReader::CripackReader(QFileInfo file) : 
-    infile(file.canonicalFilePath().toStdString().c_str()) {
+    infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in) {
+
+    std::cout << "Reading " << file.canonicalFilePath().toStdString() << std::endl;
     {
         char cpk_header[4];
         infile.read(cpk_header, 4);
@@ -22,13 +24,13 @@ CripackReader::CripackReader(QFileInfo file) :
     utf_size = read_64_le(infile);
     utf_packet = new char[utf_size];
 
-    infile.read(utf_packet, utf_size);
-
-    if (memcmp(utf_packet, "@UTF", 4) != 0) {
-        throw FormatError("Invalid @UTF header");
-    }
+    infile.read(&utf_packet[0], utf_size);
 
     cpk_packet = utf_packet;
+
+    if (infile.gcount() != utf_size) {
+        throw FormatError("Did not read all bytes");
+    }
 
     EmbeddedFile cpak_entry;
     cpak_entry.file_name = "CPK_HDR";
@@ -38,11 +40,15 @@ CripackReader::CripackReader(QFileInfo file) :
 
     file_table.push_back(cpak_entry);
 
+    std::cout << "Reading UTF of " << utf_size << " bytes, " << std::endl;
+
     utf = new UTF(reinterpret_cast<unsigned char*>(utf_packet));
 
     for (uint32_t i = 0; i < utf->columns.size(); i++) {
-        cpkdata[utf->columns[i].name] = utf->rows[0].rows[i].val;
+        cpkdata.emplace(utf->columns[i].name, utf->rows[0].rows[i].val);
     }
+
+    std::cout << "Read UTF" << std::endl;
 
     TocOffset = get_column_data(0, "TocOffset").v64;
     uint64_t TocOffsetPos = get_column_position(0, "TocOffset");
@@ -56,8 +62,8 @@ CripackReader::CripackReader(QFileInfo file) :
     GtocOffset = get_column_data(0, "GtocOffset").v64;
     uint64_t GtocOffsetPos = get_column_position(0, "GtocOffset");
 
-    ContentOffset = get_column_data(0, "ContentOffset");
-    uint64_t ContentOffsetPos = get_column_data(0, "ContentOffset");
+    ContentOffset = get_column_data(0, "ContentOffset").v64;
+    uint64_t ContentOffsetPos = get_column_position(0, "ContentOffset");
 
     file_table.push_back(EmbeddedFile("CONTENT_OFFSET", ContentOffset, ItocOffset, "CPK", "HDR"));
 
@@ -70,18 +76,16 @@ CripackReader::CripackReader(QFileInfo file) :
 
 }
 
-EmbeddedFile CripackReader::embedded
-
 CripackReader::UTFRowValues CripackReader::get_column_data(uint32_t row, std::string name) {
-    UTFRowValues result;
+    UTFRowValues* result;
 
     for (uint16_t i = 0; i < utf->n_columns; i++) {
         if (utf->columns[i].name == name) {
-            result = utf->rows[row].rows[i].val;
+            result = &utf->rows[row].rows[i].val;
         }
     }
 
-    return result;
+    return *result;
 }
 
 uint64_t CripackReader::get_column_position(uint32_t row, std::string name) {
@@ -529,7 +533,13 @@ QIcon CripackReader::fname_to_icon(std::string fname) {
 
 #undef SET_READER*/
 
-CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(4) {
+CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(0) {
+    if (memcmp(utf_packet, "@UTF", 4) != 0) {
+        throw FormatError("Invalid @UTF header");
+    }
+
+    pos += 4;
+
     table_size = read_32_be(&utf_packet[pos]);
     pos += 4;
 
@@ -558,26 +568,25 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
     n_rows = read_32_be(&utf_packet[pos]);
     pos += 4;
 
-    for (uint32_t i = 0; i < n_columns; i++) {
-        struct UTFColumn column;
+    for (uint16_t i = 0; i < n_columns; i++) {
+        UTFColumn column;
 
         column.flags = utf_packet[pos];
         pos++;
 
-        if (column.flags == 0) {
+        if (column.flags == '\0') {
             pos += 3;
             column.flags = utf_packet[pos];
             pos++;
         }
 
-        uint32_t column_name_length = read_32_be(&utf_packet[pos]);
+        uint32_t column_name_offset = read_32_be(&utf_packet[pos]);
         pos += 4;
 
-        char* column_name = new char[column_name_length + strings_offset];
-        memcpy_s(column_name, column_name_length + strings_offset, &utf_packet[pos], column_name_length + strings_offset);
-        pos += (column_name_length + strings_offset);
+        size_t column_name_length = strlen(reinterpret_cast<char*>(&utf_packet[column_name_offset + strings_offset]));
 
-        column.name = column_name;
+        column.name = new char[column_name_length + 1];
+        memcpy_s(column.name, column_name_length + 1, &utf_packet[column_name_offset + strings_offset], column_name_length + 1);
 
         columns.push_back(column);
     }

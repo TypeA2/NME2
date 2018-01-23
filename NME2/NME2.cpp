@@ -132,8 +132,8 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
         std::cout << "Selected " << path.toString().toStdString() << std::endl;
     } else if (readerTypev.toString() == "Cripack") {
         CripackReader* reader = readerv.value<CripackReader*>();
-        for (std::string toc : reader->tocs()) {
+        /*for (std::string toc : reader->tocs()) {
             std::cout << toc << std::endl;
-        }
+        }*/
     }
 }

@@ -40,10 +40,6 @@ namespace {
         return read_32_le(reinterpret_cast<unsigned char*>(b));
     }
 
-    float read_float_be(unsigned char b[4]) {
-        return *reinterpret_cast<float*>(read_32_be(b));
-    }
-
     uint64_t read_64_be(unsigned char b[4]) {
         uint64_t v = 0;
 
@@ -77,6 +73,11 @@ namespace {
         s.read(b, 4);
 
         return read_32_be(reinterpret_cast<unsigned char*>(b));
+    }
+
+    float read_float_be(unsigned char b[4]) {
+        uint32_t v = read_32_be(b);
+        return *reinterpret_cast<float*>(&v);
     }
 
     uint16_t read_16_be(unsigned char b[2]) {
