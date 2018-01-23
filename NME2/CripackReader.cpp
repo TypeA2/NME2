@@ -20,11 +20,7 @@ CripackReader::CripackReader(QFileInfo file) :
         }
     }
 
-    unk1 = read_32_le(infile);
-    utf_size = read_64_le(infile);
-    utf_packet = new char[utf_size];
-
-    infile.read(&utf_packet[0], utf_size);
+    read_utf();
 
     cpk_packet = utf_packet;
 
@@ -50,38 +46,103 @@ CripackReader::CripackReader(QFileInfo file) :
 
     std::cout << "Read UTF" << std::endl;
 
-    TocOffset = get_column_data(0, "TocOffset").v64;
+    TocOffset = get_column_data(utf, 0, "TocOffset").v64;
     uint64_t TocOffsetPos = get_column_position(0, "TocOffset");
 
-    EtocOffset = get_column_data(0, "EtocOffset").v64;
+    EtocOffset = get_column_data(utf, 0, "EtocOffset").v64;
     uint64_t EtocOffsetPos = get_column_position(0, "EtocOffset");
 
-    ItocOffset = get_column_data(0, "ItocOffset").v64;
+    ItocOffset = get_column_data(utf, 0, "ItocOffset").v64;
     uint64_t ItocOffsetPos = get_column_position(0, "ItocOffset");
 
-    GtocOffset = get_column_data(0, "GtocOffset").v64;
+    GtocOffset = get_column_data(utf, 0, "GtocOffset").v64;
     uint64_t GtocOffsetPos = get_column_position(0, "GtocOffset");
 
-    ContentOffset = get_column_data(0, "ContentOffset").v64;
+    ContentOffset = get_column_data(utf, 0, "ContentOffset").v64;
     uint64_t ContentOffsetPos = get_column_position(0, "ContentOffset");
 
     file_table.push_back(EmbeddedFile("CONTENT_OFFSET", ContentOffset, ItocOffset, "CPK", "HDR"));
 
-    uint32_t n_files = get_column_data(0, "Files").v32;
-    uint16_t alignment = get_column_data(0, "Align").v16;
+    uint32_t n_files = get_column_data(utf, 0, "Files").v32;
+    uint16_t alignment = get_column_data(utf, 0, "Align").v16;
 
     if (TocOffset != 0) {
         file_table.push_back(EmbeddedFile("TOC_HDR", TocOffset, TocOffsetPos, "CPK", "HDR"));
+
+        if (!read_toc()) {
+            throw FormatError("Could not read TOC chunk");
+        }
     }
 
+    if (EtocOffset != 0) {
+        file_table.push_back(EmbeddedFile("ETOC_HDR", EtocOffset, EtocOffsetPos, "CPK", "HDR"));
+    }
+
+    if (ItocOffset != 0) {
+        file_table.push_back(EmbeddedFile("ITOC_HDR", ItocOffset, ItocOffsetPos, "CPK", "HDR"));
+    }
+
+    if (GtocOffset != 0) {
+        file_table.push_back(EmbeddedFile("GTOC_HDR", GtocOffset, GtocOffsetPos, "CPK", "HDR"));
+    }
 }
 
-CripackReader::UTFRowValues CripackReader::get_column_data(uint32_t row, std::string name) {
+bool CripackReader::read_toc() {
+    uint64_t tTocOffset = TocOffset;
+    uint64_t add_offset = 0;
+
+    if (tTocOffset > 0x800U) {
+        tTocOffset = 0x800U;
+    }
+
+    if (ContentOffset <= 0) {
+        add_offset = tTocOffset;
+    } else if (TocOffset <= 0 || ContentOffset < tTocOffset) {
+        add_offset = ContentOffset;
+    } else {
+        add_offset = tTocOffset;
+    }
+
+    infile.seekg(TocOffset, std::ios::beg);
+
+    {
+        char toc_hdr[4];
+        infile.read(toc_hdr, 4);
+
+        if (memcmp(toc_hdr, "TOC ", 4) != 0) {
+            throw FormatError("Invalid TOC header");
+
+            return false;
+        }
+    }
+
+    read_utf();
+
+    toc_packet = utf_packet;
+
+    ptrdiff_t toc_file_pos = std::find_if(file_table.begin(), file_table.end(), [](const EmbeddedFile &f) { return f.file_name == "TOC_HDR"; }) - file_table.begin();
+    file_table[toc_file_pos].file_size = utf_size;
+
+    files = new UTF(reinterpret_cast<unsigned char*>(toc_packet));
+
+    for (uint32_t i = 0; i < files->n_columns; i++) {
+        EmbeddedFile f;
+
+        f.toc_name = "TOC";
+
+        f.dir_name = get_column_data(files, i, "DirName").vstring;
+        f.file_name = get_column_data(files, i, "FileName").vstring;
+
+        f.file_size = get_column_data(files, i, "FileSize").v64;
+    }
+}
+
+CripackReader::UTFRowValues CripackReader::get_column_data(UTF* utf_src, uint32_t row, std::string name) {
     UTFRowValues* result;
 
-    for (uint16_t i = 0; i < utf->n_columns; i++) {
-        if (utf->columns[i].name == name) {
-            result = &utf->rows[row].rows[i].val;
+    for (uint16_t i = 0; i < utf_src->n_columns; i++) {
+        if (utf_src->columns[i].name == name) {
+            result = &utf_src->rows[row].rows[i].val;
         }
     }
 
@@ -533,7 +594,25 @@ QIcon CripackReader::fname_to_icon(std::string fname) {
 
 #undef SET_READER*/
 
-CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(0) {
+/*CripackReader::UTF::UTF(std::ifstream &utf_stream) : stream(utf_stream), mem(false) {
+    {
+        char utf_hdr[4];
+        stream.read(utf_hdr, 4);
+
+        if (memcmp(utf_hdr, "@UTF", 4) != 0) {
+            throw FormatError("Invalid @UTF header");
+        }
+    }
+
+    table_size = read_32_be(stream);
+    rows_offset = read_32_be(stream);
+    strings_offset = read_32_be(stream);
+    data_offset = read_32_be(stream);
+
+    rows_offset += 8;
+}*/
+
+CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(0), mem(true) {
     if (memcmp(utf_packet, "@UTF", 4) != 0) {
         throw FormatError("Invalid @UTF header");
     }

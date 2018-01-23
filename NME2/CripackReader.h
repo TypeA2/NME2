@@ -81,16 +81,22 @@ class CripackReader {
         class UTF {
             public:
                 explicit UTF(unsigned char* utf_packet);
+                //explicit UTF(std::ifstream &utf_stream);
                 ~UTF() { }
 
                 std::vector<UTFColumn> columns;
                 std::vector<UTFRows> rows;
 
                 uint16_t n_columns;
+                uint32_t n_rows;
 
             private:
+                bool mem;
+
                 unsigned char* utf_packet;
                 uint64_t pos;
+
+                std::ifstream &stream;
 
                 uint32_t table_size;
                 uint64_t rows_offset;
@@ -98,7 +104,6 @@ class CripackReader {
                 uint64_t data_offset;
                 uint32_t table_name;
                 uint16_t row_length;
-                uint32_t n_rows;
 
                 enum StorageFlags : uint32_t {
                     STORAGE_MASK = 0xf0,
@@ -132,6 +137,7 @@ class CripackReader {
         uint64_t utf_size;
         char* utf_packet;
         char* cpk_packet;
+        char* toc_packet;
 
         uint64_t TocOffset;
         uint64_t EtocOffset;
@@ -140,9 +146,19 @@ class CripackReader {
         uint64_t ContentOffset;
 
         UTF* utf;
+        UTF* files;
 
-        UTFRowValues get_column_data(uint32_t row, std::string name);
+        UTFRowValues get_column_data(UTF* utf_src, uint32_t row, std::string name);
         uint64_t get_column_position(uint32_t row, std::string name);
+        bool read_toc();
+
+        inline void read_utf() {
+            unk1 = read_32_le(infile);
+            utf_size = read_64_le(infile);
+            utf_packet = new char[utf_size];
+
+            infile.read(utf_packet, utf_size);
+        }
 
         /*uint64_t toc_entries;
         char* toc_strtbl;
