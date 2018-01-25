@@ -23,7 +23,7 @@ class NME2 : public QMainWindow {
     public:
         explicit NME2(QString game_dir_path, std::initializer_list<QString> accepted_items);
 
-        enum FileIconType : uint32_t {
+        enum IconTypes : uint8_t {
             TypeNull,
             TypeAudio,
             TypeVideo,
@@ -32,18 +32,54 @@ class NME2 : public QMainWindow {
             TypeXML
         };
 
+        enum FileTypes : uint8_t {
+            TypeNull,
+
+            // Packages
+            TypeCPK,
+            TypeWSP,
+            TypeDTT,
+            TypeDAT,
+
+            // Audio
+            TypeWEM,
+            TypeBNK,
+
+            // Video
+            TypeUSM,
+
+            // Texture
+            TypeWTP,
+
+            // Model
+            TypeWTA,
+            
+            // Game
+            TypeEPB,
+            TypeEVN,
+            TypeENLMETA,
+            TypeRSS,
+            TypeEFF,
+            TypeTXT,
+            
+            // Unknown
+            TypeWAI,
+            TypeBXM,
+            TypeVFD
+        };
+
         enum ItemModelRoles {
             PathRole = Qt::UserRole + 1,
             FilenameRole,
-            //TypeRole,
+            TypeFlag,
             ReaderRole,
             ReaderTypeRole
         };
 
-        /*enum ItemTypes : uint8_t {
-            TypeDir,
-            TypeFile
-        };*/
+        enum ItemTypes : uint8_t {
+            FileFlag,
+            DirFlag
+        };
 
         template <typename T>
         static inline QList<T> vector_to_qlist(std::vector<T> vec) {
@@ -54,6 +90,24 @@ class NME2 : public QMainWindow {
             std::copy(vec.begin(), vec.end(), std::back_inserter(list));
 
             return list;
+        }
+
+        static inline uint8_t fname_to_icon(std::string fname) {
+            if (ends_with(fname, ".wtp") || ends_with(fname, ".dtt")) {
+                return TypeImage;
+            } else if (ends_with(fname, ".usm")) {
+                return TypeVideo;
+            } else if (ends_with(fname, ".wsp") || ends_with(fname, ".wem") || ends_with(fname, ".bnk")) {
+                return TypeAudio;
+            } else {
+                return TypeNull;
+            }
+        }
+
+        static inline bool ends_with(std::string const &v, std::string const &e) {
+            if (e.size() > v.size()) return false;
+
+            return std::equal(e.rbegin(), e.rend(), v.rbegin());
         }
 
     private slots:

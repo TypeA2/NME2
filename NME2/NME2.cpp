@@ -55,12 +55,7 @@ void NME2::create_tree_view() {
     QFutureWatcher<std::vector<QStandardItem*>>* items_watcher = new QFutureWatcher<std::vector<QStandardItem*>>();
 
     connect(items_watcher, &QFutureWatcher<std::vector<QStandardItem*>>::finished, this, [=]() {
-        std::vector<QStandardItem*> result = items_watcher->result();
-        
-        for (int32_t i = result.size() - 1; i >= 0; i--) {
-            root_dir->appendRow(result[i]);
-        }
-        //root_dir->appendRows(vector_to_qlist<QStandardItem*>(items_watcher->result()));
+        root_dir->appendRows(vector_to_qlist<QStandardItem*>(items_watcher->result()));
 
         model->invisibleRootItem()->appendRow(root_dir);
         view->setModel(model);
@@ -97,6 +92,7 @@ void NME2::create_tree_view() {
 
 std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList filters) {
     std::vector<QStandardItem*> output;
+    std::vector<QStandardItem*> result;
     QDirIterator iterator(path, filters, QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
     
    while (iterator.hasNext()) {
@@ -107,23 +103,34 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
         try {
             QFileIconProvider icons;
 
-            //file.isDir() ? item->setData(TypeDir, TypeRole) : item->setData(TypeFile, TypeRole);
-
             if (file.isDir()) {
+                item->setData(DirFlag, TypeFlag);
                 item->setIcon(icons.icon(QFileIconProvider::Folder));
 
                 item->appendRows(vector_to_qlist<QStandardItem*>(iterate_directory(file.canonicalFilePath(), filters)));
-            } else if (file.completeSuffix() == "cpk") {
-                item->setIcon(file_icons[TypeNull]);
 
-                item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
-            } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
-                item->setIcon(file_icons[TypeAudio]);
-
-                item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
             } else {
-                item->setIcon(icons.icon(QFileIconProvider::File));
-                item->setData(file.fileName(), FilenameRole);
+                item->setData(FileFlag, TypeFlag);
+                item->setIcon(file_icons[fname_to_icon(file.fileName().toStdString())]);
+
+                switch (file_type) {
+                    case TypeNull:
+
+                }
+                if (file.completeSuffix() == "cpk") {
+                    item->setIcon(file_icons[TypeNull]);
+
+                    item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
+                } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
+                    item->setIcon(file_icons[TypeAudio]);
+
+                    std::vector<QStandardItem*> children = scan_file_contents(file);
+                    item->setText(item->text() + QString(" (%0 entr%2)").arg(children.size()).arg((children.size() > 1) ? "ies" : "y"));
+                    item->appendRows(vector_to_qlist<QStandardItem*>(children));
+                } else {
+                    item->setIcon(icons.icon(QFileIconProvider::File));
+                    item->setData(file.fileName(), FilenameRole);
+                }
             }
         } catch (const FormatError &e) {
             std::cerr << e.what() << std::endl;
@@ -135,7 +142,19 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
         output.push_back(item);
     }
 
-    return output;
+   for (QStandardItem* item : output) {
+       if (item->data(TypeFlag).toInt() == DirFlag) {
+           result.push_back(item);
+       }
+   }
+
+   for (QStandardItem* item : output) {
+       if (item->data(TypeFlag).toInt() == FileFlag) {
+           result.push_back(item);
+       }
+   }
+
+    return result;
 }
 
 std::vector<QStandardItem*> NME2::scan_file_contents(QFileInfo &file) {
