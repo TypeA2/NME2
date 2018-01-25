@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Error.h"
+#include "BitManipulation.h"
 
 #include <qfileinfo.h>
 #include <qstandarditemmodel.h>
@@ -16,26 +17,9 @@ class CripackReader {
         explicit CripackReader(QFileInfo file);
         ~CripackReader();
 
-        //std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon> file_icons);
-        //std::vector<std::string> tocs();
-        std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon> icons) { Q_UNUSED(icons); return std::vector<QStandardItem*>(); }
+        std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon>& icons);
 
     private:
-        //std::map<uint32_t, QIcon> file_icons;
-        union UTFRowValues {
-            //UTFRowValues() { }
-            //~UTFRowValues() { }
-
-            uint8_t  v8;
-            uint16_t v16;
-            uint32_t v32;
-            uint64_t v64;
-            char*    data;
-            float    vfloat;
-            //std::string vstring;
-            char* vstring;
-        };
-
         struct EmbeddedFile {
             EmbeddedFile() { }
             EmbeddedFile(std::string file_name, uint64_t file_offset, uint64_t file_offset_pos, std::string toc_name, std::string file_type) :
@@ -49,6 +33,8 @@ class CripackReader {
             std::string file_name;
             std::string file_type;
             std::string toc_name;
+            std::string user_string;
+            std::string local_dir;
 
             uint64_t file_size;
             uint64_t file_size_pos;
@@ -60,6 +46,10 @@ class CripackReader {
             uint64_t file_offset_pos;
 
             uint64_t offset;
+
+            uint64_t update_date_time;
+
+            uint32_t id;
         };
 
         struct UTFColumn {
@@ -71,7 +61,7 @@ class CripackReader {
             int32_t type = -1;
             uint64_t position = 0;
             
-            UTFRowValues val;
+            QVariant val;
         };
 
         struct UTFRows {
@@ -81,7 +71,6 @@ class CripackReader {
         class UTF {
             public:
                 explicit UTF(unsigned char* utf_packet);
-                //explicit UTF(std::ifstream &utf_stream);
                 ~UTF() { }
 
                 std::vector<UTFColumn> columns;
@@ -95,8 +84,6 @@ class CripackReader {
 
                 unsigned char* utf_packet;
                 uint64_t pos;
-
-                std::ifstream &stream;
 
                 uint32_t table_size;
                 uint64_t rows_offset;
@@ -131,13 +118,17 @@ class CripackReader {
 
         std::ifstream infile;
         std::vector<EmbeddedFile> file_table;
-        std::map<std::string, UTFRowValues> cpkdata;
+        std::map<std::string, QVariant> cpkdata;
 
         uint32_t unk1;
         uint64_t utf_size;
+
         char* utf_packet;
         char* cpk_packet;
         char* toc_packet;
+        char* etoc_packet;
+        char* itoc_packet;
+        char* gtoc_packet;
 
         uint64_t TocOffset;
         uint64_t EtocOffset;
@@ -145,12 +136,19 @@ class CripackReader {
         uint64_t GtocOffset;
         uint64_t ContentOffset;
 
+        uint16_t alignment;
+
         UTF* utf;
         UTF* files;
 
-        UTFRowValues get_column_data(UTF* utf_src, uint32_t row, std::string name);
-        uint64_t get_column_position(uint32_t row, std::string name);
-        bool read_toc();
+        QVariant get_column_data(UTF* utf_src, uint32_t row, std::string name);
+        uint64_t get_column_position(UTF* utf_src, uint32_t row, std::string name);
+        bool column_exists(UTF* utf_src, uint32_t row, std::string name);
+
+        void read_toc();
+        void read_etoc();
+        void read_itoc();
+        void read_gtoc();
 
         inline void read_utf() {
             unk1 = read_32_le(infile);
@@ -159,148 +157,6 @@ class CripackReader {
 
             infile.read(utf_packet, utf_size);
         }
-
-        /*uint64_t toc_entries;
-        char* toc_strtbl;
-        uint64_t toc_offset;
-
-        typedef std::tuple<std::string, std::string, uint32_t, uint32_t> file_tuple;
-
-        typedef struct query_result {
-            bool valid = false;
-            bool found = false;
-            int type;
-
-            union {
-                uint64_t vu64;
-                uint32_t vu32;
-                uint16_t vu16;
-                uint8_t  vu8;
-                float    vfloat;
-                uint32_t vstring;
-                struct vdata {
-                    uint64_t offset;
-                    uint64_t size;
-                } vdata;
-            } value;
-
-            uint32_t rows;
-            uint32_t name_offset;
-            uint32_t strtbl_offset;
-            uint32_t data_offset;
-        } query_result;
-
-        typedef struct query {
-            const char* name;
-            uint64_t    index;
-        } query;
-
-        typedef struct column {
-            uint8_t type;
-            const char* column_name;
-            uint64_t const_offset;
-        } column;
-
-        typedef struct table {
-            uint64_t offset;
-            uint32_t size;
-            uint32_t schema_offset;
-            uint32_t rows_offset;
-            uint32_t strtbl_offset;
-            uint32_t data_offset;
-            const char* strtbl;
-            const char* tbl_name;
-            uint16_t columns;
-            uint16_t row_width;
-            uint32_t rows;
-
-            std::vector<column> schema;
-        } table;
-
-        const enum {
-            STORAGE_MASK     = 0xf0,
-            STORAGE_PERROW   = 0x50,
-            STORAGE_CONSTANT = 0x30,
-            STORAGE_ZERO     = 0x10
-        };
-
-        const enum {
-            TYPE_MASK   = 0x0f,
-            TYPE_DATA   = 0x0b,
-            TYPE_STRING = 0x0a,
-            TYPE_FLOAT  = 0x08,
-            TYPE_8BYTE  = 0x06,
-            TYPE_4BYTE2 = 0x05,
-            TYPE_4BYTE  = 0x04,
-            TYPE_2BYTE2 = 0x03,
-            TYPE_2BYTE  = 0x02,
-            TYPE_1BYTE2 = 0x01,
-            TYPE_1BYTE  = 0x00
-        };
-
-        query_result query_utf(uint64_t offset, query* query);
-
-        query_result query_key(uint64_t offset, uint32_t index, const char* name) {
-            query q;
-            q.index = index;
-            q.name  = name;
-
-            return query_utf(offset, &q);
-        }
-
-        inline uint64_t query_8(uint64_t offset, uint32_t index, const char* name) {
-            query_result result = query_key(offset, index, name);
-
-            if (result.type != TYPE_8BYTE) {
-                throw FormatError("Value is not an 8-byte uint");
-            }
-
-            return result.value.vu64;
-        }
-
-        uint32_t query_4(uint64_t offset, uint32_t index, const char* name) {
-            query_result result = query_key(offset, index, name);
-
-            if (result.type != TYPE_4BYTE) {
-                throw FormatError("Value is not a 4-byte uint");
-            }
-
-            return result.value.vu32;
-        }
-
-        const char* query_string(uint64_t offset, uint32_t index, const char* name, const char* strtbl) {
-            query_result result = query_key(offset, index, name);
-
-            if (result.type != TYPE_STRING) {
-                throw FormatError("Value is not a string");
-            }
-
-            return strtbl + result.value.vstring;
-        }
-
-        char* load_strtbl(uint64_t offset) {
-            query_result result = query_utf(offset, NULL);
-            size_t strtbl_size = result.data_offset - result.strtbl_offset;
-            uint64_t strtbl_offset = offset + 8 + result.strtbl_offset;
-            char* strtbl = new char[strtbl_size + 1]();
-
-            infile.seekg(strtbl_offset, std::ios::beg);
-            infile.read(strtbl, strtbl_size + 1);
-
-            return strtbl;
-        }
-
-        inline bool ends_with(std::string const &v, std::string const &e) {
-            if (e.size() > v.size()) return false;
-
-            return std::equal(e.rbegin(), e.rend(), v.rbegin());
-        }
-
-        std::vector<QStandardItem*> merge_dirs(std::vector<std::string> dirs, std::vector<file_tuple> files);
-
-        std::vector<QStandardItem*> match_dirs(std::string dir, std::vector<file_tuple> files);
-
-        QIcon fname_to_icon(std::string fname);*/
 };
 
 Q_DECLARE_METATYPE(CripackReader*);

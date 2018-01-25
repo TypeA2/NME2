@@ -115,6 +115,13 @@ std::vector<QStandardItem*> NME2::scan_file_contents(QFileInfo &file) {
     if (file.completeSuffix() == "cpk") {
         CripackReader* reader = new CripackReader(file);
 
+        /*std::cout << "Cripack:" << std::endl;
+
+        for (std::string s : reader->file_contents()) {
+            std::cout << s;
+        }
+        std::cout << std::endl;*/
+
         return reader->file_contents(file_icons);
     }
 
@@ -132,8 +139,5 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
         std::cout << "Selected " << path.toString().toStdString() << std::endl;
     } else if (readerTypev.toString() == "Cripack") {
         CripackReader* reader = readerv.value<CripackReader*>();
-        /*for (std::string toc : reader->tocs()) {
-            std::cout << toc << std::endl;
-        }*/
     }
 }
