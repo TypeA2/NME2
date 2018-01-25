@@ -96,6 +96,7 @@
     <ClCompile Include="NMEItemModel.cpp" />
     <ClCompile Include="NNMETreeView.cpp" />
     <ClCompile Include="NME2.cpp" />
+    <ClCompile Include="WWRiffReader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="NME2.h">
@@ -147,6 +148,7 @@
     <ClInclude Include="BitManipulation.h" />
     <ClInclude Include="CripackReader.h" />
     <ClInclude Include="Error.h" />
+    <ClInclude Include="WWRiffReader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

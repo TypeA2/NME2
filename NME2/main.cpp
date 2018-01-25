@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    NME2 w("F:/Steam/SteamApps/Common/NieRAutomata", { "*.cpk", "*.usm", "*.bnk", "*.wem", "*.wsp" });
+    NME2 w("F:/Steam/SteamApps/Common/NieRAutomata", { "*" });
 
     return a.exec();
 }

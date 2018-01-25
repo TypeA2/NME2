@@ -1,13 +1,17 @@
 #include "NME2.h"
+
 #include "NMEItemModel.h"
 #include "NMETreeView.h"
 #include "CripackReader.h"
+#include "WWRiffReader.h"
 
 NME2::NME2(QString game_dir_path, std::initializer_list<QString> accepted_items) : QMainWindow(), 
     game_dir_path(game_dir_path + "/data"),
     accepted_items(accepted_items), 
-    model(new NMEItemModel()), 
+    model(new NMEItemModel()),
     view(new NMETreeView()) {
+
+    view->header()->close();
 
     view->setAlternatingRowColors(true);
 
@@ -51,7 +55,12 @@ void NME2::create_tree_view() {
     QFutureWatcher<std::vector<QStandardItem*>>* items_watcher = new QFutureWatcher<std::vector<QStandardItem*>>();
 
     connect(items_watcher, &QFutureWatcher<std::vector<QStandardItem*>>::finished, this, [=]() {
-        root_dir->appendRows(vector_to_qlist<QStandardItem*>(items_watcher->result()));
+        std::vector<QStandardItem*> result = items_watcher->result();
+        
+        for (int32_t i = result.size() - 1; i >= 0; i--) {
+            root_dir->appendRow(result[i]);
+        }
+        //root_dir->appendRows(vector_to_qlist<QStandardItem*>(items_watcher->result()));
 
         model->invisibleRootItem()->appendRow(root_dir);
         view->setModel(model);
@@ -67,7 +76,18 @@ void NME2::create_tree_view() {
         delete loading_layout;
         delete loading_widget;
 
-        this->setCentralWidget(view);
+        QWidget* central_widget = new QWidget(this);
+        QGridLayout* central_layout = new QGridLayout(central_widget);
+        active_item_widget = new QWidget(central_widget);
+        active_item_layout = new QGridLayout(active_item_widget);
+
+        central_layout->addWidget(view, 0, 0);
+        central_layout->addWidget(active_item_widget, 0, 1);
+
+        central_layout->setColumnStretch(0, 1);
+        central_layout->setColumnStretch(1, 1);
+
+        this->setCentralWidget(central_widget);
     });
 
     QFuture<std::vector<QStandardItem*>> items_future = QtConcurrent::run(this, &NME2::iterate_directory, game_dir_path, accepted_items);
@@ -86,12 +106,19 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
 
         try {
             QFileIconProvider icons;
+
+            //file.isDir() ? item->setData(TypeDir, TypeRole) : item->setData(TypeFile, TypeRole);
+
             if (file.isDir()) {
                 item->setIcon(icons.icon(QFileIconProvider::Folder));
 
                 item->appendRows(vector_to_qlist<QStandardItem*>(iterate_directory(file.canonicalFilePath(), filters)));
             } else if (file.completeSuffix() == "cpk") {
                 item->setIcon(file_icons[TypeNull]);
+
+                item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
+            } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
+                item->setIcon(file_icons[TypeAudio]);
 
                 item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
             } else {
@@ -113,16 +140,13 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
 
 std::vector<QStandardItem*> NME2::scan_file_contents(QFileInfo &file) {
     if (file.completeSuffix() == "cpk") {
-        CripackReader* reader = new CripackReader(file);
+        CripackReader* reader = new CripackReader(file, file_icons);
 
-        /*std::cout << "Cripack:" << std::endl;
+        return reader->file_contents();
+    } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
+        WWRiffReader* reader = new WWRiffReader(file, file_icons);
 
-        for (std::string s : reader->file_contents()) {
-            std::cout << s;
-        }
-        std::cout << std::endl;*/
-
-        return reader->file_contents(file_icons);
+        return reader->file_contents();
     }
 
     return std::vector<QStandardItem*>();

@@ -9,8 +9,7 @@
 #include <qlabel.h>
 #include <qfuturewatcher.h>
 #include <qtemporaryfile.h>
-
-#include <qstandarditemmodel.h>
+#include <qheaderview.h>
 
 #include <iostream>
 #include <vector>
@@ -36,9 +35,15 @@ class NME2 : public QMainWindow {
         enum ItemModelRoles {
             PathRole = Qt::UserRole + 1,
             FilenameRole,
+            //TypeRole,
             ReaderRole,
             ReaderTypeRole
         };
+
+        /*enum ItemTypes : uint8_t {
+            TypeDir,
+            TypeFile
+        };*/
 
         template <typename T>
         static inline QList<T> vector_to_qlist(std::vector<T> vec) {
@@ -61,10 +66,8 @@ class NME2 : public QMainWindow {
         NMEItemModel* model;
         NMETreeView* view;
 
-        enum FileScanMode {
-            ReturnStringList,
-            ReturnStandardItemList
-        };
+        QWidget* active_item_widget;
+        QGridLayout* active_item_layout;
 
         void generate_file_icons();
         void create_tree_view();

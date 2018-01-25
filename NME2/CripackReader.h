@@ -10,14 +10,12 @@
 #include <fstream>
 #include <iostream>
 
-#define C_STR(s) s.toStdString().c_str()
-
 class CripackReader {
     public:
-        explicit CripackReader(QFileInfo file);
+        explicit CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons);
         ~CripackReader();
 
-        std::vector<QStandardItem*> file_contents(std::map<uint32_t, QIcon>& icons);
+        std::vector<QStandardItem*> file_contents();
 
     private:
         struct EmbeddedFile {
@@ -117,6 +115,8 @@ class CripackReader {
         };
 
         std::ifstream infile;
+        std::map<uint32_t, QIcon>& file_icons;
+
         std::vector<EmbeddedFile> file_table;
         std::map<std::string, QVariant> cpkdata;
 
@@ -157,6 +157,16 @@ class CripackReader {
 
             infile.read(utf_packet, utf_size);
         }
+
+        inline bool ends_with(std::string const &v, std::string const &e) {
+            if (e.size() > v.size()) return false;
+
+            return std::equal(e.rbegin(), e.rend(), v.rbegin());
+        }
+
+        std::vector<QStandardItem*> merge_dirs(std::vector<std::string> dirs);
+        std::vector<QStandardItem*> match_dirs(std::string dir);
+        QIcon fname_to_icon(std::string fname);
 };
 
 Q_DECLARE_METATYPE(CripackReader*);

@@ -1,10 +1,10 @@
 #include "CripackReader.h"
 
 #include "NME2.h"
-#include "BitManipulation.h"
 
-CripackReader::CripackReader(QFileInfo file) : 
-    infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in) {
+CripackReader::CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons) : 
+    infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in),
+    file_icons(icons) {
 
     {
         char cpk_header[4];
@@ -82,20 +82,126 @@ CripackReader::CripackReader(QFileInfo file) :
     }
 }
 
-std::vector<QStandardItem*> CripackReader::file_contents(std::map<uint32_t, QIcon>& icons) {
-    std::vector<QStandardItem*> result;
+std::vector<QStandardItem*> CripackReader::file_contents() {
+    std::vector<std::string> dirs;
 
     for (EmbeddedFile f : file_table) {
-        QStandardItem* item = new QStandardItem();
-        item->setEditable(false);
-        item->setText((f.dir_name + "/" + f.file_name).c_str());
-        item->setData(QVariant::fromValue(this), NME2::ReaderRole);
-        item->setData("Cripack", NME2::ReaderTypeRole);
+        if (f.file_type != "FILE" || f.dir_name.length() == 0) {
+            continue;
+        }
 
-        result.push_back(item);
+        if (std::find(dirs.begin(), dirs.end(), f.dir_name) == dirs.end()) {
+            dirs.push_back(f.dir_name);
+        }
     }
 
+    return merge_dirs(dirs);
+}
+
+std::vector<QStandardItem*> CripackReader::merge_dirs(std::vector<std::string> dirs) {
+    std::vector<QStandardItem*> result;
+    std::vector<QStandardItem*> file_hold;
+    std::map<std::string, QStandardItem*> dir_map;
+
+    QIcon dir_icon = QFileIconProvider().icon(QFileIconProvider::Folder);
+
+    for (EmbeddedFile f : file_table) {
+        if (f.file_type != "FILE") {
+            continue;
+        }
+
+        if (f.dir_name.length() == 0) {
+            QStandardItem* file = new QStandardItem(f.file_name.c_str());
+            file->setEditable(false);
+            file->setIcon(fname_to_icon(f.file_name));
+            file->setData(QVariant::fromValue(this), NME2::ReaderRole);
+            file->setData("Cripack", NME2::ReaderTypeRole);
+
+            file_hold.push_back(file);
+        } else {
+            std::string base_dir = f.dir_name.substr(0, f.dir_name.find('/'));
+
+            if (dir_map.count(base_dir) == 0) {
+                QStandardItem* dir = new QStandardItem(base_dir.c_str());
+                dir->setEditable(false);
+                dir->setIcon(dir_icon);
+                dir->setData(QVariant::fromValue(this), NME2::ReaderRole);
+                dir->setData("Cripack", NME2::ReaderTypeRole);
+
+                dir->appendRows(NME2::vector_to_qlist<QStandardItem*>(match_dirs(base_dir)));
+
+
+                dir_map.emplace(base_dir, dir);
+            }
+        }
+    }
+
+    for (std::pair<std::string, QStandardItem*> dir : dir_map) {
+        result.push_back(dir.second);
+    }
+
+    result.insert(result.end(), file_hold.begin(), file_hold.end());
+
     return result;
+}
+
+std::vector<QStandardItem*> CripackReader::match_dirs(std::string dir) {
+    std::vector<QStandardItem*> result;
+    std::vector<QStandardItem*> file_hold;
+    std::map<std::string, QStandardItem*> dirs;
+
+    QIcon dir_icon = QFileIconProvider().icon(QFileIconProvider::Folder);
+    bool dirs_present = false;
+
+    for (EmbeddedFile f : file_table) {
+        if (f.dir_name == dir) {
+            QStandardItem* file = new QStandardItem(f.file_name.c_str());
+            file->setEditable(false);
+            file->setIcon(fname_to_icon(f.file_name));
+            file->setData(QVariant::fromValue(this), NME2::ReaderRole);
+            file->setData("Cripack", NME2::ReaderTypeRole);
+
+            file_hold.push_back(file);
+        } else if (f.dir_name.compare(0, dir.length(), dir) == 0) {
+            dirs_present = true;
+
+            std::string dirname = f.dir_name.substr(f.dir_name.find('/') + 1);
+
+            if (dirs.count(dirname) == 0) {
+                QStandardItem* subdir = new QStandardItem(dirname.c_str());
+                subdir->setIcon(dir_icon);
+                subdir->setEditable(false);
+                subdir->setData(QVariant::fromValue(this), NME2::ReaderRole);
+                subdir->setData("Cripack", NME2::ReaderTypeRole);
+
+                subdir->appendRows(NME2::vector_to_qlist<QStandardItem*>(match_dirs(dir + "/" + dirname)));
+
+                dirs.emplace(dirname, subdir);
+            }
+        }
+    }
+
+    if (dirs_present) {
+        for (std::pair<std::string, QStandardItem*> dir : dirs) {
+            result.push_back(dir.second);
+        }
+    }
+
+    result.insert(result.end(), file_hold.begin(), file_hold.end());
+
+    return result;
+}
+
+QIcon CripackReader::fname_to_icon(std::string fname) {
+    if (ends_with(fname, ".wtp") || ends_with(fname, ".dtt")) {
+        return file_icons[NME2::TypeImage];
+    } else if (ends_with(fname, ".usm")) {
+        return file_icons[NME2::TypeVideo];
+    } else if (ends_with(fname, ".wsp") || ends_with(fname, ".wem") || ends_with(fname, ".bnk")) {
+        return file_icons[NME2::TypeAudio];
+    } else {
+        return file_icons[NME2::TypeNull];
+    }
 }
 
 void CripackReader::read_gtoc() {

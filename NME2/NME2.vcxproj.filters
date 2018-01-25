@@ -60,6 +60,9 @@
     <ClCompile Include="GeneratedFiles\Debug\moc_NMETreeView.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="WWRiffReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="NME2.h">
@@ -83,6 +86,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WWRiffReader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
