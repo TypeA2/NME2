@@ -55,7 +55,3 @@ std::vector<QStandardItem*> WWRiffReader::file_contents() {
 
     return result;
 }
-
-WWRiffReader::~WWRiffReader() {
-
-}

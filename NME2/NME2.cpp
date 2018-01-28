@@ -33,6 +33,7 @@ void NME2::generate_file_icons() {
     CREATE_ICON("tiff", TypeImage);
     CREATE_ICON("txt", TypeText);
     CREATE_ICON("xml", TypeXML);
+    CREATE_ICON("zip", TypePackage);
 
 #undef CREATE_ICON
 }
@@ -113,20 +114,18 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
                 item->setData(FileFlag, TypeFlag);
                 item->setIcon(file_icons[fname_to_icon(file.fileName().toStdString())]);
 
-                switch (file_type) {
-                    case TypeNull:
-
-                }
                 if (file.completeSuffix() == "cpk") {
-                    item->setIcon(file_icons[TypeNull]);
+                    item->setIcon(file_icons[TypePackage]);
 
                     item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
-                } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
-                    item->setIcon(file_icons[TypeAudio]);
+                } else if (file.completeSuffix() == "wsp") {
+                    item->setIcon(file_icons[TypePackage]);
 
                     std::vector<QStandardItem*> children = scan_file_contents(file);
                     item->setText(item->text() + QString(" (%0 entr%2)").arg(children.size()).arg((children.size() > 1) ? "ies" : "y"));
                     item->appendRows(vector_to_qlist<QStandardItem*>(children));
+                } else if(file.completeSuffix() == "wem"){
+                    item->setIcon(file_icons[TypeAudio]);
                 } else {
                     item->setIcon(icons.icon(QFileIconProvider::File));
                     item->setData(file.fileName(), FilenameRole);
@@ -172,15 +171,18 @@ std::vector<QStandardItem*> NME2::scan_file_contents(QFileInfo &file) {
 }
 
 void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, const QItemSelection & /*oldSelection*/) {
-    QModelIndex index = view->selectionModel()->currentIndex();
+    QModelIndex selected = view->selectionModel()->currentIndex();
 
-    QVariant path = index.data(PathRole);
-    QVariant readerv = index.data(ReaderRole);
-    QVariant readerTypev = index.data(ReaderTypeRole);
+    if (selected.data(PathRole).isValid()) {
+        std::cout << "Selected " << selected.data(Qt::DisplayRole).toString().toStdString() << std::endl;
+    } else if (selected.data(ReaderTypeRole).toString() == "Cripack") {
+        QVariant data = selected.data(EmbeddedRole);
+        if (!data.isValid()) {
+            std::cout << "Dir" << std::endl;
+        } else {
+            CripackReader::EmbeddedFile file = data.value<CripackReader::EmbeddedFile>();
 
-    if (path.isValid()) {
-        std::cout << "Selected " << path.toString().toStdString() << std::endl;
-    } else if (readerTypev.toString() == "Cripack") {
-        CripackReader* reader = readerv.value<CripackReader*>();
+            std::cout << file.file_size << " " << file.extract_size << std::endl;
+        }
     }
 }

@@ -113,9 +113,29 @@ std::vector<QStandardItem*> CripackReader::merge_dirs(std::vector<std::string> d
         if (f.dir_name.length() == 0) {
             QStandardItem* file = new QStandardItem(f.file_name.c_str());
             file->setEditable(false);
-            file->setIcon(fname_to_icon(f.file_name));
+            file->setIcon(file_icons[NME2::fname_to_icon(f.file_name)]);
             file->setData(QVariant::fromValue(this), NME2::ReaderRole);
             file->setData("Cripack", NME2::ReaderTypeRole);
+            file->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
+
+            if (NME2::ends_with(f.file_name, ".dat") || NME2::ends_with(f.file_name, ".dtt")) {
+                std::cout << f.file_offset << f.file_name<< std::endl;
+                char* data = new char[f.file_size];
+
+                infile.seekg(f.file_offset);
+                infile.read(data, f.file_size);
+
+                if (f.file_size != f.extract_size) {
+                    char* tmp = decompress_crilayla(data, f.file_size);
+
+                    delete data;
+
+                    data = tmp;
+                }
+
+                DATReader* reader = new DATReader(data, file_icons);
+                file->appendRows(NME2::vector_to_qlist(reader->file_contents()));
+            }
 
             file_hold.push_back(file);
         } else {
@@ -154,12 +174,35 @@ std::vector<QStandardItem*> CripackReader::match_dirs(std::string dir) {
     bool dirs_present = false;
 
     for (EmbeddedFile f : file_table) {
+        if (f.file_type != "FILE") {
+            continue;
+        }
+
         if (f.dir_name == dir) {
             QStandardItem* file = new QStandardItem(f.file_name.c_str());
             file->setEditable(false);
-            file->setIcon(fname_to_icon(f.file_name));
+            file->setIcon(file_icons[NME2::fname_to_icon(f.file_name)]);
             file->setData(QVariant::fromValue(this), NME2::ReaderRole);
             file->setData("Cripack", NME2::ReaderTypeRole);
+            file->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
+
+            if (NME2::ends_with(f.file_name, ".dat") || NME2::ends_with(f.file_name, ".dtt")) {
+                char* data = new char[f.file_size];
+
+                infile.seekg(f.file_offset);
+                infile.read(data, f.file_size);
+
+                if (f.file_size != f.extract_size) {
+                    char* tmp = decompress_crilayla(data, f.file_size);
+
+                    delete data;
+
+                    data = tmp;
+                }
+
+                DATReader* reader = new DATReader(data, file_icons);
+                file->appendRows(NME2::vector_to_qlist(reader->file_contents()));
+            }
 
             file_hold.push_back(file);
         } else if (f.dir_name.compare(0, dir.length(), dir) == 0) {
@@ -174,7 +217,7 @@ std::vector<QStandardItem*> CripackReader::match_dirs(std::string dir) {
                 subdir->setData(QVariant::fromValue(this), NME2::ReaderRole);
                 subdir->setData("Cripack", NME2::ReaderTypeRole);
 
-                subdir->appendRows(NME2::vector_to_qlist<QStandardItem*>(match_dirs(dir + "/" + dirname)));
+                subdir->appendRows(NME2::vector_to_qlist(match_dirs(dir + "/" + dirname)));
 
                 dirs.emplace(dirname, subdir);
             }
@@ -192,18 +235,6 @@ std::vector<QStandardItem*> CripackReader::match_dirs(std::string dir) {
     return result;
 }
 
-QIcon CripackReader::fname_to_icon(std::string fname) {
-    if (ends_with(fname, ".wtp") || ends_with(fname, ".dtt")) {
-        return file_icons[NME2::TypeImage];
-    } else if (ends_with(fname, ".usm")) {
-        return file_icons[NME2::TypeVideo];
-    } else if (ends_with(fname, ".wsp") || ends_with(fname, ".wem") || ends_with(fname, ".bnk")) {
-        return file_icons[NME2::TypeAudio];
-    } else {
-        return file_icons[NME2::TypeNull];
-    }
-}
-
 void CripackReader::read_gtoc() {
     infile.seekg(GtocOffset, std::ios::beg);
 
@@ -212,7 +243,7 @@ void CripackReader::read_gtoc() {
         infile.read(gtoc_hdr, 4);
 
         if (memcmp(gtoc_hdr, "GTOC", 4) != 0) {
-            throw FormatError("Invalid ETOC header");
+            throw FormatError("Invalid GTOC header");
         }
     }
 
@@ -456,7 +487,7 @@ void CripackReader::read_toc() {
 
         f.file_type = "FILE";
 
-        f.offset = add_offset;
+        f.file_offset = add_offset;
 
         f.id = get_column_data(files, i, "ID").toUInt();
 
@@ -499,6 +530,67 @@ uint64_t CripackReader::get_column_position(UTF* utf_src, uint32_t row, std::str
             break;
         }
     }
+
+    return result;
+}
+
+char* CripackReader::decompress_crilayla(char* input, uint64_t input_size) {
+    uint64_t pos = 8;
+
+    if (memcmp(input, "CRILAYLA", 8) != 0) {
+        std::cout << "CRILAYLA: " << input[0] << input[1] << input[2] << input[3] << input[4] << input[5] << input[6] << input[7] << std::endl;
+        throw FormatError("Invalid CRILAYLA signature");
+    }
+    
+    uint32_t uncompressed_size = read_32_le(reinterpret_cast<unsigned char*>(&input[8]));
+
+    uint32_t uncompressed_hdr_offset = read_32_le(reinterpret_cast<unsigned char*>(&input[12]));
+
+    char* result = new char[uncompressed_size + 0x100];
+
+    memcpy_s(result, uncompressed_size + 0x100, &input[uncompressed_hdr_offset + 0x10], input_size);
+
+    uint64_t input_end = input_size - 0x101;
+    uint64_t input_offset = input_end;
+    uint64_t output_end = 0xff + uncompressed_size;
+    uint8_t bit_pool = 0;
+    uint64_t bits_left = 0;
+    uint64_t bytes_output = 0;
+    uint32_t vle_lens[4] = { 2, 3, 5, 8 };
+
+    while (bytes_output < uncompressed_size) {
+        if (get_bits(input, &input_offset, &bit_pool, &bits_left, 1) > 0) {
+            uint64_t backreference_offset = output_end - bytes_output + get_bits(input, &input_offset, &bit_pool, &bits_left, 13) + 3;
+            uint64_t backreference_length = 3;
+            uint32_t vle_level;
+
+            for (vle_level = 0; vle_level < 4; vle_level++) {
+                uint16_t this_level = get_bits(input, &input_offset, &bit_pool, &bits_left, vle_lens[vle_level]);
+                backreference_length += this_level;
+
+                if (this_level != ((1 << vle_lens[vle_level]) - 1)) {
+                    break;
+                }
+            }
+
+            if (vle_level == 4) {
+                uint16_t this_level;
+
+                do {
+                    this_level = get_bits(input, &input_offset, &bit_pool, &bits_left, 8);
+                    backreference_length += this_level;
+                } while (this_level == 0xff);
+            }
+
+            for (uint64_t i = 0; i < backreference_length; i++) {
+                result[output_end - bytes_output] = result[backreference_offset--];
+                bytes_output++;
+            }
+        } else {
+            result[output_end - bytes_output] = static_cast<int8_t>(get_bits(input, &input_offset, &bit_pool, &bits_left, 8));
+            bytes_output++;
+        }
+    } 
 
     return result;
 }
@@ -647,6 +739,54 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
     }
 }
 
-CripackReader::~CripackReader() {
-    infile.close();
+CripackReader::DATReader::DATReader(char* file, std::map<uint32_t, QIcon>& file_icons) :
+    file_icons(file_icons) {
+    if (memcmp(file, "DAT\0", 4) != 0) {
+        //throw FormatError("Invalid DAT header");
+        throw FormatError(file);
+    }
+
+    file_count = read_32_le(reinterpret_cast<unsigned char*>(&file[4]));
+    file_table_offset = read_32_le(reinterpret_cast<unsigned char*>(&file[8]));
+    name_table_offset = read_32_le(reinterpret_cast<unsigned char*>(&file[16])) + 4U;
+    size_table_offset = read_32_le(reinterpret_cast<unsigned char*>(&file[20]));
+    name_align = read_32_le(reinterpret_cast<unsigned char*>(&file[name_table_offset - 4]));
+
+    file_table.reserve(file_count);
+
+    for (uint32_t i = 0; i < file_count; i++) {
+        LightEmbeddedFile f;
+
+        f.index = i;
+        f.offset = read_32_le(reinterpret_cast<unsigned char*>(&file[file_table_offset + 4 * i]));
+        f.size = read_32_le(reinterpret_cast<unsigned char*>(&file[size_table_offset + 4 * i]));
+
+        uint32_t actual_name_size = strlen(&file[name_table_offset + name_align * i]);
+        char* fname = new char[actual_name_size + 1];
+
+        memcpy_s(fname, actual_name_size + 1, &file[name_table_offset + name_align * i], name_align);
+
+        f.name = std::string(fname);
+
+        delete fname;
+
+        file_table.push_back(f);
+    }
+}
+
+std::vector<QStandardItem*> CripackReader::DATReader::file_contents() {
+    std::vector<QStandardItem*> result;
+    
+    for (LightEmbeddedFile f : file_table) {
+        QStandardItem* file = new QStandardItem(f.name.c_str());
+        file->setIcon(file_icons[NME2::fname_to_icon(f.name)]);
+        file->setEditable(false);
+        file->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
+        file->setData(QVariant::fromValue(this), NME2::ReaderRole);
+        file->setData("DAT", NME2::ReaderTypeRole);
+
+        result.push_back(file);
+    }
+
+    return result;
 }
