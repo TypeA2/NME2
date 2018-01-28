@@ -48,20 +48,32 @@
     <ClCompile Include="CripackReader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NNMETreeView.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="NMEItemModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_NMEItemModel.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="WWRiffReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_NMETreeView.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="WWRiffReader.cpp">
+    <ClCompile Include="GeneratedFiles\Release\moc_NMETreeView.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NMETreeView.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LineEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_LineEditor.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_LineEditor.cpp">
+      <Filter>Generated Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -75,6 +87,9 @@
       <Filter>Header Files</Filter>
     </CustomBuild>
     <CustomBuild Include="NMETreeView.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="LineEditor.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>

@@ -10,12 +10,15 @@
 #include <qfuturewatcher.h>
 #include <qtemporaryfile.h>
 #include <qheaderview.h>
+#include <qformlayout.h>
+#include <qplaintextedit.h>
 
 #include <iostream>
 #include <vector>
 
 #include "NMETreeView.h"
 #include "NMEItemModel.h"
+#include "LineEditor.h"
 
 class NME2 : public QMainWindow {
     Q_OBJECT
@@ -66,10 +69,12 @@ class NME2 : public QMainWindow {
             return TypeImage;
         } else if (ends_with(fname, ".usm")) {
             return TypeVideo;
-        } else if (ends_with(fname, ".wsp") || ends_with(fname, ".dat") || ends_with(fname, ".dtt") || ends_with(fname, ".cpk")) {
+        } else if (ends_with(fname, ".wsp") || ends_with(fname, ".dat") || ends_with(fname, ".dtt") || ends_with(fname, ".cpk") || ends_with(fname, ".eff") || ends_with(fname, ".evn")) {
             return TypePackage;
         } else if (ends_with(fname, ".wem") || ends_with(fname, ".bnk")) {
             return TypeAudio;
+        } else if(ends_with(fname, ".txt") || ends_with(fname, ".rss")){
+            return TypeText;
         } else {
             return TypeNull;
         }
@@ -92,7 +97,9 @@ class NME2 : public QMainWindow {
     NMETreeView* view;
 
     QWidget* active_item_widget;
-    QGridLayout* active_item_layout;
+    QVBoxLayout* active_item_layout;
+
+    std::map<std::string, QString> txt_file_cache;
 
     void generate_file_icons();
     void create_tree_view();

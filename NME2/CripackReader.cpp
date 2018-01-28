@@ -118,25 +118,6 @@ std::vector<QStandardItem*> CripackReader::merge_dirs(std::vector<std::string> d
             file->setData("Cripack", NME2::ReaderTypeRole);
             file->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
 
-            if (NME2::ends_with(f.file_name, ".dat") || NME2::ends_with(f.file_name, ".dtt")) {
-                std::cout << f.file_offset << f.file_name<< std::endl;
-                char* data = new char[f.file_size];
-
-                infile.seekg(f.file_offset);
-                infile.read(data, f.file_size);
-
-                if (f.file_size != f.extract_size) {
-                    char* tmp = decompress_crilayla(data, f.file_size);
-
-                    delete data;
-
-                    data = tmp;
-                }
-
-                DATReader* reader = new DATReader(data, file_icons);
-                file->appendRows(NME2::vector_to_qlist(reader->file_contents()));
-            }
-
             file_hold.push_back(file);
         } else {
             std::string base_dir = f.dir_name.substr(0, f.dir_name.find('/'));
@@ -185,24 +166,6 @@ std::vector<QStandardItem*> CripackReader::match_dirs(std::string dir) {
             file->setData(QVariant::fromValue(this), NME2::ReaderRole);
             file->setData("Cripack", NME2::ReaderTypeRole);
             file->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
-
-            if (NME2::ends_with(f.file_name, ".dat") || NME2::ends_with(f.file_name, ".dtt")) {
-                char* data = new char[f.file_size];
-
-                infile.seekg(f.file_offset);
-                infile.read(data, f.file_size);
-
-                if (f.file_size != f.extract_size) {
-                    char* tmp = decompress_crilayla(data, f.file_size);
-
-                    delete data;
-
-                    data = tmp;
-                }
-
-                DATReader* reader = new DATReader(data, file_icons);
-                file->appendRows(NME2::vector_to_qlist(reader->file_contents()));
-            }
 
             file_hold.push_back(file);
         } else if (f.dir_name.compare(0, dir.length(), dir) == 0) {
@@ -482,12 +445,13 @@ void CripackReader::read_toc() {
         f.extract_size = get_column_data(files, i, "ExtractSize").toULongLong();
         f.extract_size_pos = get_column_position(files, i, "ExtractSize");
         
-        f.file_offset = get_column_data(files, i, "FileOffset").toULongLong();
+        f.file_offset = get_column_data(files, i, "FileOffset").toULongLong() + add_offset;
+
         f.file_offset_pos = get_column_position(files, i, "FileOffset");
 
         f.file_type = "FILE";
 
-        f.file_offset = add_offset;
+        f.offset = add_offset;
 
         f.id = get_column_data(files, i, "ID").toUInt();
 
@@ -538,7 +502,6 @@ char* CripackReader::decompress_crilayla(char* input, uint64_t input_size) {
     uint64_t pos = 8;
 
     if (memcmp(input, "CRILAYLA", 8) != 0) {
-        std::cout << "CRILAYLA: " << input[0] << input[1] << input[2] << input[3] << input[4] << input[5] << input[6] << input[7] << std::endl;
         throw FormatError("Invalid CRILAYLA signature");
     }
     
@@ -548,7 +511,7 @@ char* CripackReader::decompress_crilayla(char* input, uint64_t input_size) {
 
     char* result = new char[uncompressed_size + 0x100];
 
-    memcpy_s(result, uncompressed_size + 0x100, &input[uncompressed_hdr_offset + 0x10], input_size);
+    memcpy_s(result, 0x100, &input[uncompressed_hdr_offset + 0x10], 0x100);
 
     uint64_t input_end = input_size - 0x101;
     uint64_t input_offset = input_end;
@@ -590,14 +553,14 @@ char* CripackReader::decompress_crilayla(char* input, uint64_t input_size) {
             result[output_end - bytes_output] = static_cast<int8_t>(get_bits(input, &input_offset, &bit_pool, &bits_left, 8));
             bytes_output++;
         }
-    } 
+    }
 
     return result;
 }
 
 CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(0), mem(true) {
     if (memcmp(utf_packet, "@UTF", 4) != 0) {
-        throw FormatError("Invalid @UTF header");
+        throw DATFormatError("Invalid @UTF header");
     }
 
     pos += 4;
@@ -742,8 +705,13 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
 CripackReader::DATReader::DATReader(char* file, std::map<uint32_t, QIcon>& file_icons) :
     file_icons(file_icons) {
     if (memcmp(file, "DAT\0", 4) != 0) {
-        //throw FormatError("Invalid DAT header");
-        throw FormatError(file);
+        delete file;
+
+        std::string errmsg = "Invalid DAT header ";
+
+        char hdr[3] = { file[0], file[1], file[2] };
+        errmsg.append(hdr);
+        throw DATFormatError(errmsg.c_str());
     }
 
     file_count = read_32_le(reinterpret_cast<unsigned char*>(&file[4]));
@@ -764,7 +732,7 @@ CripackReader::DATReader::DATReader(char* file, std::map<uint32_t, QIcon>& file_
         uint32_t actual_name_size = strlen(&file[name_table_offset + name_align * i]);
         char* fname = new char[actual_name_size + 1];
 
-        memcpy_s(fname, actual_name_size + 1, &file[name_table_offset + name_align * i], name_align);
+        memcpy_s(fname, actual_name_size + 1, &file[name_table_offset + name_align * i], actual_name_size + 1);
 
         f.name = std::string(fname);
 
@@ -772,6 +740,8 @@ CripackReader::DATReader::DATReader(char* file, std::map<uint32_t, QIcon>& file_
 
         file_table.push_back(f);
     }
+
+    delete file;
 }
 
 std::vector<QStandardItem*> CripackReader::DATReader::file_contents() {

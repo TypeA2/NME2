@@ -46,6 +46,8 @@ class CripackReader {
         uint64_t file_offset;
         uint64_t file_offset_pos;
 
+        uint64_t offset;
+
         uint64_t update_date_time;
 
         uint32_t id;
