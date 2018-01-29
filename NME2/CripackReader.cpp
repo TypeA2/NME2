@@ -2,9 +2,15 @@
 
 #include "NME2.h"
 
-CripackReader::CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons) : 
+CripackReader::CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons, bool init) : 
     infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in),
     file_icons(icons) {
+    if (init) {
+        this->init();
+    }
+}
+
+void CripackReader::init() {
 
     {
         char cpk_header[4];
@@ -36,7 +42,7 @@ CripackReader::CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons) :
     for (uint32_t i = 0; i < utf->columns.size(); i++) {
         cpkdata.emplace(utf->columns[i].name, utf->rows[0].rows[i].val);
     }
-    
+
     TocOffset = get_column_data(utf, 0, "TocOffset").toULongLong();
     uint64_t TocOffsetPos = get_column_position(utf, 0, "TocOffset");
 
@@ -759,4 +765,16 @@ std::vector<QStandardItem*> CripackReader::DATReader::file_contents() {
     }
 
     return result;
+}
+
+char* CripackReader::UTF::load_strtbl(std::ifstream& infile, uint64_t offset) {
+    uint64_t strtbl_size = data_offset - strings_offset;
+    uint64_t offset = offset + 8 + strings_offset;
+
+    char* strtbl = new char[strtbl_size + 1];
+
+    infile.seekg(strings_offset);
+    infile.read(strtbl, strtbl_size + 1);
+
+    return strtbl;
 }

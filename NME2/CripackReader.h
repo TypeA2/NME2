@@ -12,7 +12,7 @@
 
 class CripackReader {
     public:
-    explicit CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons);
+    explicit CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons, bool init = true);
     ~CripackReader() {
         infile.close();
     }
@@ -79,7 +79,15 @@ class CripackReader {
         std::vector<LightEmbeddedFile> file_table;
     };
 
-    private:
+    protected:
+    inline void read_utf() {
+        unk1 = read_32_le(infile);
+        utf_size = read_64_le(infile);
+        utf_packet = new char[utf_size];
+
+        infile.read(utf_packet, utf_size);
+    }
+
     struct UTFColumn {
         char flags;
         char* name;
@@ -106,6 +114,11 @@ class CripackReader {
 
         uint16_t n_columns;
         uint32_t n_rows;
+
+        inline uint64_t get_data_offset() { return data_offset; }
+        inline uint32_t get_table_name() { return table_name; }
+
+        char* load_strtbl(std::ifstream& infile, uint64_t offset);
 
         private:
         bool mem;
@@ -175,18 +188,11 @@ class CripackReader {
     uint64_t get_column_position(UTF* utf_src, uint32_t row, std::string name);
     bool column_exists(UTF* utf_src, uint32_t row, std::string name);
 
+    void init();
     void read_toc();
     void read_etoc();
     void read_itoc();
     void read_gtoc();
-
-    inline void read_utf() {
-        unk1 = read_32_le(infile);
-        utf_size = read_64_le(infile);
-        utf_packet = new char[utf_size];
-
-        infile.read(utf_packet, utf_size);
-    }
 
     std::vector<QStandardItem*> merge_dirs(std::vector<std::string> dirs);
     std::vector<QStandardItem*> match_dirs(std::string dir);

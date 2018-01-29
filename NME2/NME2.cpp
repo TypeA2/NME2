@@ -114,23 +114,16 @@ std::vector<QStandardItem*> NME2::iterate_directory(QString path, QStringList fi
 
             } else {
                 item->setData(FileFlag, TypeFlag);
+                item->setData(file.fileName(), FilenameRole);
                 item->setIcon(file_icons[fname_to_icon(file.fileName().toStdString())]);
 
                 if (file.completeSuffix() == "cpk") {
-                    item->setIcon(file_icons[TypePackage]);
-
                     item->appendRows(vector_to_qlist<QStandardItem*>(scan_file_contents(file)));
                 } else if (file.completeSuffix() == "wsp") {
-                    item->setIcon(file_icons[TypePackage]);
-
                     std::vector<QStandardItem*> children = scan_file_contents(file);
-                    item->setText(item->text() + QString(" (%0 entr%2)").arg(children.size()).arg((children.size() > 1) ? "ies" : "y"));
                     item->appendRows(vector_to_qlist<QStandardItem*>(children));
-                } else if(file.completeSuffix() == "wem"){
-                    item->setIcon(file_icons[TypeAudio]);
-                } else {
-                    item->setIcon(icons.icon(QFileIconProvider::File));
-                    item->setData(file.fileName(), FilenameRole);
+
+                    item->setText(item->text() + QString(" (%0 entr%2)").arg(children.size()).arg((children.size() > 1) ? "ies" : "y"));
                 }
             }
         } catch (const FormatError &e) {
@@ -207,6 +200,8 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
                 editor->setPlainText(txt_file_cache[path]);
                 editor->moveCursor(QTextCursor::Start);
             }
+        } else if (ends_with(fname, ".usm")) {
+
         }
     } else if (selected.data(ReaderTypeRole).toString() == "Cripack") {
         QVariant data = selected.data(EmbeddedRole);

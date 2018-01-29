@@ -39,9 +39,6 @@
     <ClCompile Include="GeneratedFiles\Debug\moc_NME2.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Release\moc_NME2.cpp">
-      <Filter>Generated Files</Filter>
-    </ClCompile>
     <ClCompile Include="GeneratedFiles\qrc_NME2.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
@@ -60,9 +57,6 @@
     <ClCompile Include="GeneratedFiles\Debug\moc_NMETreeView.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Release\moc_NMETreeView.cpp">
-      <Filter>Generated Files</Filter>
-    </ClCompile>
     <ClCompile Include="NMETreeView.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -72,7 +66,13 @@
     <ClCompile Include="GeneratedFiles\Debug\moc_LineEditor.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Release\moc_LineEditor.cpp">
+    <ClCompile Include="USMPlayer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_USMPlayer.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_USMPlayer.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -90,6 +90,9 @@
       <Filter>Header Files</Filter>
     </CustomBuild>
     <CustomBuild Include="LineEditor.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="USMPlayer.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>
