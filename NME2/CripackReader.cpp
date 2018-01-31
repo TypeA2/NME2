@@ -3,8 +3,18 @@
 #include "NME2.h"
 
 CripackReader::CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons, bool init) : 
-    infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in),
+    infile(std::ifstream(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in)),
     file_icons(icons) {
+
+    if (init) {
+        this->init();
+    }
+}
+
+CripackReader::CripackReader(std::ifstream& infile, std::map<uint32_t, QIcon>& icons, bool init) : 
+    infile(infile),
+    file_icons(icons) {
+
     if (init) {
         this->init();
     }
@@ -480,15 +490,13 @@ bool CripackReader::column_exists(UTF* utf_src, uint32_t row, std::string name) 
 }
 
 QVariant CripackReader::get_column_data(UTF* utf_src, uint32_t row, std::string name) {
-    QVariant result;
-
     for (uint16_t i = 0; i < utf_src->n_columns; i++) {
         if (utf_src->columns[i].name == name) {
-            result = utf_src->rows[row].rows[i].val;
+            return utf_src->rows[row].rows[i].val;
         }
     }
 
-    return result;
+    return QVariant();
 }
 
 uint64_t CripackReader::get_column_position(UTF* utf_src, uint32_t row, std::string name) {
@@ -564,7 +572,7 @@ char* CripackReader::decompress_crilayla(char* input, uint64_t input_size) {
     return result;
 }
 
-CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos(0), mem(true) {
+CripackReader::UTF::UTF(unsigned char* utf_packet, bool verbose) : utf_packet(utf_packet), pos(0), mem(true) {
     if (memcmp(utf_packet, "@UTF", 4) != 0) {
         throw DATFormatError("Invalid @UTF header");
     }
@@ -614,10 +622,7 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
         uint32_t column_name_offset = read_32_be(&utf_packet[pos]);
         pos += 4;
 
-        size_t column_name_length = strlen(reinterpret_cast<char*>(&utf_packet[column_name_offset + strings_offset]));
-
-        column.name = new char[column_name_length + 1];
-        memcpy_s(column.name, column_name_length + 1, &utf_packet[column_name_offset + strings_offset], column_name_length + 1);
+        column.name = reinterpret_cast<char*>(&utf_packet[column_name_offset + strings_offset]);
 
         columns.push_back(column);
     }
@@ -656,6 +661,7 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
                 case TYPE_4BYTE:
                 case TYPE_4BYTE2:
                     current_row.val = QVariant::fromValue(read_32_be(&utf_packet[pos]));
+
                     pos += 4;
                     break;
 
@@ -697,7 +703,11 @@ CripackReader::UTF::UTF(unsigned char* utf_packet) : utf_packet(utf_packet), pos
                         memcpy_s(str_val, str_size + 1, &utf_packet[str_offset + strings_offset], str_size + 1);
 
                         current_row.val = QVariant::fromValue(QString(str_val));
+                        break;
                     }
+
+                default:
+                    throw FormatError(QString("Invalid type %0").arg(current_row.type, 2, 16));
 
             }
 
@@ -769,11 +779,10 @@ std::vector<QStandardItem*> CripackReader::DATReader::file_contents() {
 
 char* CripackReader::UTF::load_strtbl(std::ifstream& infile, uint64_t offset) {
     uint64_t strtbl_size = data_offset - strings_offset;
-    uint64_t offset = offset + 8 + strings_offset;
 
     char* strtbl = new char[strtbl_size + 1];
 
-    infile.seekg(strings_offset);
+    infile.seekg(offset + 8 + strings_offset);
     infile.read(strtbl, strtbl_size + 1);
 
     return strtbl;

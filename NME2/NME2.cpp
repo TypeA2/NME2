@@ -4,6 +4,7 @@
 #include "NMETreeView.h"
 #include "CripackReader.h"
 #include "WWRiffReader.h"
+#include "USMPlayer.h"
 
 NME2::NME2(QString game_dir_path, std::initializer_list<QString> accepted_items) : QMainWindow(), 
     game_dir_path(game_dir_path + "/data"),
@@ -201,7 +202,13 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
                 editor->moveCursor(QTextCursor::Start);
             }
         } else if (ends_with(fname, ".usm")) {
+            try {
+                USMPlayer* player = new USMPlayer(path, file_icons);
 
+                active_item_layout->addWidget(player);
+            } catch (const USMFormatError& e) {
+                std::cout << "USMPlayer error: " << e.what() << std::endl;
+            }
         }
     } else if (selected.data(ReaderTypeRole).toString() == "Cripack") {
         QVariant data = selected.data(EmbeddedRole);

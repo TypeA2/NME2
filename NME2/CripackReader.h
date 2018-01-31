@@ -13,6 +13,7 @@
 class CripackReader {
     public:
     explicit CripackReader(QFileInfo file, std::map<uint32_t, QIcon>& icons, bool init = true);
+    explicit CripackReader(std::ifstream& infile, std::map<uint32_t, QIcon>& icons, bool init = true);
     ~CripackReader() {
         infile.close();
     }
@@ -83,6 +84,27 @@ class CripackReader {
     inline void read_utf() {
         unk1 = read_32_le(infile);
         utf_size = read_64_le(infile);
+
+        utf_packet = new char[utf_size];
+
+        infile.read(utf_packet, utf_size);
+    }
+
+    inline void read_utf_noheader() {
+        {
+            char utf_hdr[4];
+
+            infile.read(utf_hdr, 4);
+
+            if (memcmp(utf_hdr, "@UTF", 4) != 0) {
+                throw USMFormatError("Invalid @UTF header");
+            }
+        }
+
+        uint32_t utf_size = read_32_be(infile) + 8;
+
+        infile.seekg(-8, std::ios::cur);
+
         utf_packet = new char[utf_size];
 
         infile.read(utf_packet, utf_size);
@@ -90,7 +112,7 @@ class CripackReader {
 
     struct UTFColumn {
         char flags;
-        char* name;
+        std::string name;
     };
 
     struct UTFRow {
@@ -106,7 +128,7 @@ class CripackReader {
 
     class UTF {
         public:
-        explicit UTF(unsigned char* utf_packet);
+        explicit UTF(unsigned char* utf_packet, bool verbose = false);
         ~UTF() { }
 
         std::vector<UTFColumn> columns;
@@ -157,7 +179,7 @@ class CripackReader {
         };
     };
 
-    std::ifstream infile;
+    std::ifstream& infile;
     std::map<uint32_t, QIcon>& file_icons;
 
     std::vector<EmbeddedFile> file_table;

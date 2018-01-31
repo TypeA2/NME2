@@ -11,7 +11,7 @@ class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
 
     public:
-    explicit USMPlayer(const char* fname, std::map<uint32_t, QIcon>& icons, QWidget* parent = nullptr);
+    explicit USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidget* parent = nullptr);
 
     ~USMPlayer() {
 
@@ -22,7 +22,7 @@ class USMPlayer : public QWidget, public CripackReader {
     uint64_t fsize;
     QByteArray video;
 
-    std::string fname;
+    std::string infile_path;
 
     QGridLayout* layout;
     QVideoWidget* video_widget;
