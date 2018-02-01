@@ -11,7 +11,7 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
     infile_path(fpath) {
     this->setLayout(layout);
 
-    layout->addWidget(video_widget, 0, 0);
+    //layout->addWidget(video_widget, 0, 0);
     layout->addWidget(new QLabel("Test"), 1, 0);
 
     player->setVideoOutput(video_widget);
@@ -23,10 +23,77 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
     infile.seekg(0, std::ios::beg);
 
     QBuffer* video = analyse();
-
+    
     video->seek(0);
 
-    QEventLoop loop;
+    VlcInstance* instance = new VlcInstance(VlcCommon::args(), this);
+    //VlcInstance* instance = new VlcInstance()
+    //VlcMediaPlayer* vlcplayer = new VlcMediaPlayer(instance);
+    //VlcWidgetVideo* videowidget = new VlcWidgetVideo(vlcplayer, this);
+
+    //vlcplayer->setVideoWidget(videowidget);
+
+    //layout->addWidget(videowidget, 0, 0);
+
+    //MemVideoData* dummy = new MemVideoData(const_cast<char*>(video->data().data()), video->size());
+    //using ssize_T = long;
+    libvlc_media_t* media = libvlc_media_new_callbacks(instance->core(),
+    [](void* opaque, void** data, uint64_t* p_size) -> int {
+        QBuffer* ctx = static_cast<QBuffer*>(opaque);
+
+        *data = ctx;
+        *p_size = ctx->size();
+
+        return 0;
+    },
+    [](void* opaque, unsigned char* buf, size_t len) -> int {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+
+        return ctx->read(reinterpret_cast<char*>(buf), len);
+    },
+        [](void* opaque, uint64_t seek) -> int {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+
+        if (!ctx->seek(seek)) {
+            return -1;
+        }
+
+        return 0;
+    },
+        [](void* opaque) {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+        ctx->close();
+    },
+    video);
+
+    /*VLC::Media* media = VLC::Media(instance->core(), [video](void*, void** opaque, uint64_t* p_size) -> int {
+        video->open(QIODevice::ReadWrite);
+
+        *opaque = video;
+        *p_size = video->size;
+
+        return 0;
+    },
+    [](void* opaque, unsigned char* buf, size_t len) -> ssize_t {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+
+        return ctx->read(reinterpret_cast<char*>(buf), len);
+    },
+    [](void* opaque, uint64_t seek) -> int {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+        
+        if (!ctx->seek(seek)) {
+            return -1;
+        }
+
+        return 0;
+    },
+    [](void* opaque) {
+        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
+        ctx->close();
+    });
+
+    /*QEventLoop loop;
 
     QProcess* ffmpeg = new QProcess(&loop);
     ffmpeg->setProcessChannelMode(QProcess::MergedChannels);
@@ -39,17 +106,17 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
     });
 
     connect(ffmpeg, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), &loop, [=]() {
-        /*QBuffer* buffer = new QBuffer();
+        QBuffer* buffer = new QBuffer();
         buffer->setData(ffmpeg->readAllStandardOutput());
         buffer->open(QBuffer::ReadOnly);
-        buffer->seek(0);*/
-        player->setMedia(QUrl("C:/Users/Nuan/Downloads/utf_tab07b3/out.mpg"));
+        buffer->seek(0);
+        player->setMedia(QUrl("C:/Users/Nuan/Downloads/utf_tab07b3/out.mp4"));
         player->play();
     });
 
     ffmpeg->start("ffmpeg", QStringList() << "-v" << "quiet" << "-hide_banner" << "-f" << "mpegvideo" << "-i" << "-" << "-f" << "mpeg" << "-c" << "copy" << "-");
 
-    loop.exec();
+    loop.exec();*/
 }
 
 QBuffer* USMPlayer::analyse() {

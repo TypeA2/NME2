@@ -11,6 +11,18 @@
 #include <qlabel.h>
 #include <qmediaplaylist.h>
 
+#include <VLCQtCore\Common.h>
+#include <VLCQtCore\Instance.h>
+#include <VLCQtCore\MediaPlayer.h>
+#include <VLCQtWidgets\WidgetVideo.h>
+#include <vlc\vlc.h>
+#include <vlc\libvlc_media.h>
+#include <vlcpp\Media.hpp>
+#include <vlcpp\Instance.hpp>
+#include <vlcpp\Internal.hpp>
+
+#include <Windows.h>
+
 class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
 
