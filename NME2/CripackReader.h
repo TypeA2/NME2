@@ -6,6 +6,8 @@
 #include <qfileinfo.h>
 #include <qstandarditemmodel.h>
 #include <qfileiconprovider.h>
+#include <qbuffer.h>
+#include <qtextcodec.h>
 
 #include <fstream>
 #include <iostream>
@@ -149,6 +151,7 @@ class CripackReader {
         uint64_t pos;
 
         uint32_t table_size;
+        uint8_t encode_type;
         uint64_t rows_offset;
         uint64_t strings_offset;
         uint64_t data_offset;

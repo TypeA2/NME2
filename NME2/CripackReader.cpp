@@ -582,8 +582,12 @@ CripackReader::UTF::UTF(unsigned char* utf_packet, bool verbose) : utf_packet(ut
     table_size = read_32_be(&utf_packet[pos]);
     pos += 4;
 
-    rows_offset = read_32_be(&utf_packet[pos]);
-    pos += 4;
+    pos++;
+    encode_type = utf_packet[pos];
+    pos++;
+
+    rows_offset = read_16_be(&utf_packet[pos]);
+    pos += 2;
 
     strings_offset = read_32_be(&utf_packet[pos]);
     pos += 4;
@@ -702,7 +706,8 @@ CripackReader::UTF::UTF(unsigned char* utf_packet, bool verbose) : utf_packet(ut
 
                         memcpy_s(str_val, str_size + 1, &utf_packet[str_offset + strings_offset], str_size + 1);
 
-                        current_row.val = QVariant::fromValue(QString(str_val));
+                        current_row.val = QVariant::fromValue(QTextCodec::codecForName((encode_type == 0) ? "Shift-JIS" : "UTF-8")->toUnicode(str_val));
+
                         break;
                     }
 

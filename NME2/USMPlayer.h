@@ -6,6 +6,10 @@
 #include <qgridlayout.h>
 #include <qvideowidget.h>
 #include <qmediaplayer.h>
+#include <qprocess.h>
+#include <qeventloop.h>
+#include <qlabel.h>
+#include <qmediaplaylist.h>
 
 class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
@@ -28,7 +32,7 @@ class USMPlayer : public QWidget, public CripackReader {
     QVideoWidget* video_widget;
     QMediaPlayer* player;
 
-    void analyse();
+    QBuffer* analyse();
 
     struct StreamInfo {
         std::string fname;

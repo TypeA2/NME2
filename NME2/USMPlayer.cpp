@@ -6,12 +6,13 @@
 USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidget* parent) : QWidget(parent), CripackReader(infile, icons, false),
     infile(fpath.c_str(), std::ios::binary | std::ios::in),
     layout(new QGridLayout(this)),
-    video_widget(new QVideoWidget(this)),
+    video_widget(new QVideoWidget()),
     player(new QMediaPlayer()),
     infile_path(fpath) {
     this->setLayout(layout);
 
     layout->addWidget(video_widget, 0, 0);
+    layout->addWidget(new QLabel("Test"), 1, 0);
 
     player->setVideoOutput(video_widget);
 
@@ -21,18 +22,44 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
 
     infile.seekg(0, std::ios::beg);
 
-    analyse();
+    QBuffer* video = analyse();
+
+    video->seek(0);
+
+    QEventLoop loop;
+
+    QProcess* ffmpeg = new QProcess(&loop);
+    ffmpeg->setProcessChannelMode(QProcess::MergedChannels);
+
+    connect(ffmpeg, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), &loop, &QEventLoop::quit);
+
+    connect(ffmpeg, &QProcess::started, [=]() {
+        ffmpeg->write(video->readAll());
+        ffmpeg->closeWriteChannel();
+    });
+
+    connect(ffmpeg, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), &loop, [=]() {
+        /*QBuffer* buffer = new QBuffer();
+        buffer->setData(ffmpeg->readAllStandardOutput());
+        buffer->open(QBuffer::ReadOnly);
+        buffer->seek(0);*/
+        player->setMedia(QUrl("C:/Users/Nuan/Downloads/utf_tab07b3/out.mpg"));
+        player->play();
+    });
+
+    ffmpeg->start("ffmpeg", QStringList() << "-v" << "quiet" << "-hide_banner" << "-f" << "mpegvideo" << "-i" << "-" << "-f" << "mpeg" << "-c" << "copy" << "-");
+
+    loop.exec();
 }
 
-void USMPlayer::analyse() {
+QBuffer* USMPlayer::analyse() {
     uint64_t n_streams = 0;
-    StreamInfo* streams = nullptr;
+    std::vector<StreamInfo> streams;
     char* CRIUSF_strtbl = nullptr;
     int32_t live_streams = 0;
     bool streams_setup = false;
 
-    std::vector<QByteArray> stream_data;
-    std::vector<QDataStream*> outstreams;
+    std::vector<QBuffer*> outstreams;
 
     enum {
         CRID = 0x43524944,
@@ -40,6 +67,8 @@ void USMPlayer::analyse() {
         SFA = 0x40534641
     };
 
+
+    int64_t x = 0;
     do {
         uint32_t stmid = read_32_be(infile);
         uint32_t block_size = read_32_be(infile);
@@ -126,73 +155,56 @@ void USMPlayer::analyse() {
             }
 
             {
-                streams = new StreamInfo[n_streams];
+                streams.reserve(n_streams);
 
                 for (uint32_t i = 0; i < n_streams; i++) {
-                    StreamInfo* stream = &streams[i];
-
-                    stream->fname = get_column_data(utf, i, "filename").toString().toStdString();
-                    stream->fsize = get_column_data(utf, i, "filesize").toULongLong();
-                    stream->dsize = get_column_data(utf, i, "datasize").toULongLong();
-                    stream->stmid = get_column_data(utf, i, "stdmid").toUInt();
-                    stream->chno = get_column_data(utf, i, "chno").toUInt();
-                    stream->minchk = get_column_data(utf, i, "minchk").toUInt();
-                    stream->minbuf = get_column_data(utf, i, "minbuf").toUInt();
-                    stream->avbps = get_column_data(utf, i, "avbps").toUInt();
+                    StreamInfo stream;
+                    stream.fname = get_column_data(utf, i, "filename").toString().toStdString();
+                    stream.fsize = get_column_data(utf, i, "filesize").toULongLong();
+                    stream.dsize = get_column_data(utf, i, "datasize").toULongLong();
+                    stream.stmid = get_column_data(utf, i, "stmid").toUInt();
+                    stream.chno = get_column_data(utf, i, "chno").toUInt();
+                    stream.minchk = get_column_data(utf, i, "minchk").toUInt();
+                    stream.minbuf = get_column_data(utf, i, "minbuf").toUInt();
+                    stream.avbps = get_column_data(utf, i, "avbps").toUInt();
 
                     if (i == 0) {
-                        if (stream->stmid != 0) {
+                        if (stream.stmid != 0) {
                             throw USMFormatError("Expected stmid for stream #0");
                         }
 
-                        if (stream->chno != 0xffff) {
+                        if (stream.chno != 0xffff) {
                             throw USMFormatError("Expected chno -1");
                         }
                     } else {
-                        switch (stream->stmid) {
+                        switch (stream.stmid) {
                             case SFV:
                             case SFA:
                                 break;
                             default:
-                                qDebug() << utf->columns[i].name.c_str() << utf->rows[i].rows[4].val;
-                                qDebug() << get_column_data(utf, i, "stdmid");
                                 throw USMFormatError("Unknown stdmid");
                         }
 
-                        if (stream->dsize != 0) {
+                        if (stream.dsize != 0) {
                             throw USMFormatError("Expected datasize 0");
                         }
 
                         for (uint32_t j = 0; j < i; j++) {
-                            if (stream->stmid == streams[j].stmid) {
+                            if (stream.stmid == streams[j].stmid) {
                                 throw USMFormatError("Duplicate stdmid");
                             }
                         }
                     }
+
+                    streams.push_back(stream);
                 }
             }
 
             {
-                std::cout << n_streams << " streams" << std::endl;
-
-                for (uint32_t i = 0; i < n_streams; i++) {
-                    if (i == 0) {
-                        outstreams.push_back(nullptr);
-                    } else {
-                        stream_data.push_back(QByteArray());
-
-                        switch (streams[i].stmid) {
-                            case SFV:
-                                std::cout << "mpeg" << std::endl;
-                                break;
-
-                            case SFA:
-                                std::cout << "adx" << std::endl;
-                                break;
-                        }
-
-                        outstreams.push_back(new QDataStream(stream_data[i]));
-                    }
+                outstreams.push_back(nullptr);
+                for (uint32_t i = 1; i < n_streams; i++) {
+                    outstreams.push_back(new QBuffer());
+                    outstreams[i]->open(QIODevice::ReadWrite);
                 }
             }
 
@@ -211,40 +223,43 @@ void USMPlayer::analyse() {
 
             infile.seekg(CRIUSF_offset + payload_bytes, std::ios::beg);
         } else {
-        switch (block_type) {
-            case 0: { // Data
-                    char* payload = new char[payload_bytes];
+            switch (block_type) {
+                case 0: { // Data
+                        char* payload = new char[payload_bytes];
 
-                    infile.read(payload, payload_bytes);
-                    outstreams[stream_idx]->writeRawData(payload, payload_bytes);
+                        infile.read(payload, payload_bytes);
 
-                    delete payload;
+                        outstreams[stream_idx]->write(payload, payload_bytes);
 
-                    break;
-                }
+                        streams[stream_idx].payload_bytes += payload_bytes;
+
+                        delete payload;
+
+                        break;
+                    }
                 
-            case 1: // Header
-            case 3: // Metadata
-                infile.seekg(payload_bytes, std::ios::cur);
-                break;
+                case 1: // Header
+                case 3: // Metadata
+                    infile.seekg(payload_bytes, std::ios::cur);
+                    break;
 
-            case 2: { // Stream metadata
-                    char* metadata = new char[payload_bytes];
+                case 2: { // Stream metadata
+                        char* metadata = new char[payload_bytes];
 
-                    infile.read(metadata, payload_bytes);
+                        infile.read(metadata, payload_bytes);
 
-                    if (strncmp(metadata, "#CONTENTS END   ===============", payload_bytes) == 0) {
-                        streams[stream_idx].alive = 0;
-                        live_streams--;
+                        if (strncmp(metadata, "#CONTENTS END   ===============", payload_bytes) == 0) {
+                            streams[stream_idx].alive = 0;
+                            live_streams--;
+                        }
+                        
+                        delete metadata;
+                    
+                        break;
                     }
 
-                    delete metadata;
-                    
-                    break;
-                }
-
-            default:
-                throw USMFormatError("Unknown block type");
+                default:
+                    throw USMFormatError("Unknown block type");
             }
         }
 
@@ -265,4 +280,6 @@ void USMPlayer::analyse() {
     if (!streams_setup) {
         throw USMFormatError("No CRID found");
     }
+
+    return outstreams[1];
 }
