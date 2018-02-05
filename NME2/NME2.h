@@ -1,17 +1,17 @@
 #pragma once
 
 #include <QtWidgets\QMainWindow>
-#include <QtConcurrent\qtconcurrentrun.h>
+#include <QtConcurrent>
 
-#include <qfileiconprovider.h>
-#include <qdiriterator.h>
-#include <qboxlayout.h>
-#include <qlabel.h>
-#include <qfuturewatcher.h>
-#include <qtemporaryfile.h>
-#include <qheaderview.h>
-#include <qformlayout.h>
-#include <qplaintextedit.h>
+#include <QFileIconProvider>
+#include <QDirIterator>
+#include <QBoxLayout>
+#include <QLabel>
+#include <QFutureWatcher>
+#include <QTemporaryFile>
+#include <QHeaderView>
+#include <QFormLayout>
+#include <QPlaintextEdit>
 
 #include <iostream>
 #include <vector>
@@ -88,6 +88,7 @@ class NME2 : public QMainWindow {
 
     private slots:
     void model_selection_changed(const QItemSelection & /*newSelection*/, const QItemSelection & /*oldSelection*/);
+    void check_model_selection(QModelIndex& selected);
 
     private:
     QString game_dir_path;

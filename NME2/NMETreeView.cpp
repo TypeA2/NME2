@@ -1,6 +1,6 @@
 #include "NMETreeView.h"
 
-#include <Qt3DInput\qkeyevent.h>
+#include <Qt3DInput\QKeyEvent>
 
 NMETreeView::NMETreeView(QWidget* parent) : QTreeView(parent) {
 

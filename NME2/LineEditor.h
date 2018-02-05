@@ -1,8 +1,8 @@
 #pragma once
 
-#include <qplaintextedit.h>
-#include <qpainter.h>
-#include <qtextobject.h>
+#include <QPlainTextEdit>
+#include <QPainter>
+#include <QTextBlock>
 
 class LineEditor : public QPlainTextEdit {
     Q_OBJECT

@@ -176,6 +176,11 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
 
     QModelIndex selected = view->selectionModel()->currentIndex();
 
+    //QtConcurrent::run(this, &NME2::check_model_selection, selected);
+    check_model_selection(selected);
+}
+
+void NME2::check_model_selection(QModelIndex& selected) {
     if (selected.data(PathRole).isValid()) {
         std::string fname = selected.data(FilenameRole).toString().toStdString();
         std::string path = selected.data(PathRole).toString().toStdString();

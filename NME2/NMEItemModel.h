@@ -1,6 +1,6 @@
 #pragma once
 
-#include <qstandarditemmodel.h>
+#include <QStandardItemModel>
 
 class NMEItemModel : public QStandardItemModel {
     Q_OBJECT

@@ -3,11 +3,11 @@
 #include "Error.h"
 #include "BitManipulation.h"
 
-#include <qfileinfo.h>
-#include <qstandarditemmodel.h>
-#include <qfileiconprovider.h>
-#include <qbuffer.h>
-#include <qtextcodec.h>
+#include <QFileInfo>
+#include <QStandardItemModel>
+#include <QFileIconProvider>
+#include <QBuffer>
+#include <QTextCodec>
 
 #include <fstream>
 #include <iostream>

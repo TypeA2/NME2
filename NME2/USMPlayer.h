@@ -2,26 +2,18 @@
 
 #include "CripackReader.h"
 
-#include <qwidget.h>
-#include <qgridlayout.h>
-#include <qvideowidget.h>
-#include <qmediaplayer.h>
-#include <qprocess.h>
-#include <qeventloop.h>
-#include <qlabel.h>
-#include <qmediaplaylist.h>
+#include <QWidget>
+#include <QGridLayout>
+#include <QVideoWidget>
+#include <QMediaPlayer>
+#include <QLabel>
+#include <QMediaPlaylist>
+#include <QtConcurrent>
+#include <QFutureWatcher>
+#include <QPushButton>
+#include <QSlider>
 
-#include <VLCQtCore\Common.h>
-#include <VLCQtCore\Instance.h>
-#include <VLCQtCore\MediaPlayer.h>
-#include <VLCQtWidgets\WidgetVideo.h>
-#include <vlc\vlc.h>
-#include <vlc\libvlc_media.h>
-#include <vlcpp\Media.hpp>
-#include <vlcpp\Instance.hpp>
-#include <vlcpp\Internal.hpp>
-
-#include <Windows.h>
+#include <QtAV/QtAV>
 
 class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
@@ -30,8 +22,19 @@ class USMPlayer : public QWidget, public CripackReader {
     explicit USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidget* parent = nullptr);
 
     ~USMPlayer() {
-
+        delete player;
+        delete output;
+        delete video_file;
+        delete play_pause_button;
+        delete progress_slider;
     }
+
+    private slots:
+    void slider_seek(int64_t val);
+    void slider_seek();
+    void update_slider(int64_t val);
+    void update_slider();
+    void update_slider_unit();
 
     private:
     std::ifstream infile;
@@ -40,9 +43,19 @@ class USMPlayer : public QWidget, public CripackReader {
 
     std::string infile_path;
 
+    QIcon play_icon;
+    QIcon pause_icon;
+
     QGridLayout* layout;
-    QVideoWidget* video_widget;
-    QMediaPlayer* player;
+
+    QtAV::AVPlayer* player;
+    QtAV::VideoOutput* output;
+    int64_t slider_unit;
+    
+    QBuffer* video_file;
+
+    QPushButton* play_pause_button;
+    QSlider* progress_slider;
 
     QBuffer* analyse();
 
@@ -62,4 +75,3 @@ class USMPlayer : public QWidget, public CripackReader {
         uint32_t alive;
     };
 };
-

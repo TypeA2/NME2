@@ -3,8 +3,8 @@
 #include "Error.h"
 #include "BitManipulation.h"
 
-#include <qfileinfo.h>
-#include <qstandarditemmodel.h>
+#include <QFileInfo>
+#include <QStandardItemModel>
 
 #include <fstream>
 

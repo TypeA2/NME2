@@ -6,15 +6,14 @@
 USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidget* parent) : QWidget(parent), CripackReader(infile, icons, false),
     infile(fpath.c_str(), std::ios::binary | std::ios::in),
     layout(new QGridLayout(this)),
-    video_widget(new QVideoWidget()),
-    player(new QMediaPlayer()),
+    play_pause_button(new QPushButton("Play")),
+    player(new QtAV::AVPlayer(this)),
+    output(new QtAV::VideoOutput(this)),
+    progress_slider(new QSlider(Qt::Horizontal)),
+    slider_unit(1000),
     infile_path(fpath) {
+
     this->setLayout(layout);
-
-    //layout->addWidget(video_widget, 0, 0);
-    layout->addWidget(new QLabel("Test"), 1, 0);
-
-    player->setVideoOutput(video_widget);
 
     infile.seekg(0, std::ios::end);
 
@@ -22,101 +21,73 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
 
     infile.seekg(0, std::ios::beg);
 
-    QBuffer* video = analyse();
-    
-    video->seek(0);
+    player->setRenderer(output);
+    output->setQuality(QtAV::VideoRenderer::QualityBest);
 
-    VlcInstance* instance = new VlcInstance(VlcCommon::args(), this);
-    //VlcInstance* instance = new VlcInstance()
-    //VlcMediaPlayer* vlcplayer = new VlcMediaPlayer(instance);
-    //VlcWidgetVideo* videowidget = new VlcWidgetVideo(vlcplayer, this);
 
-    //vlcplayer->setVideoWidget(videowidget);
+    play_pause_button->setIcon(play_icon);
 
-    //layout->addWidget(videowidget, 0, 0);
-
-    //MemVideoData* dummy = new MemVideoData(const_cast<char*>(video->data().data()), video->size());
-    //using ssize_T = long;
-    libvlc_media_t* media = libvlc_media_new_callbacks(instance->core(),
-    [](void* opaque, void** data, uint64_t* p_size) -> int {
-        QBuffer* ctx = static_cast<QBuffer*>(opaque);
-
-        *data = ctx;
-        *p_size = ctx->size();
-
-        return 0;
-    },
-    [](void* opaque, unsigned char* buf, size_t len) -> int {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
-
-        return ctx->read(reinterpret_cast<char*>(buf), len);
-    },
-        [](void* opaque, uint64_t seek) -> int {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
-
-        if (!ctx->seek(seek)) {
-            return -1;
+    connect(play_pause_button, &QPushButton::released, this, [=]() {
+        std::cout << player->duration() << " " << player->notifyInterval() << " " << slider_unit <<  std::endl;
+        if (!player->isPlaying()) {
+            play_pause_button->setText("Pause");
+            player->play();
+            return;
         }
-
-        return 0;
-    },
-        [](void* opaque) {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
-        ctx->close();
-    },
-    video);
-
-    /*VLC::Media* media = VLC::Media(instance->core(), [video](void*, void** opaque, uint64_t* p_size) -> int {
-        video->open(QIODevice::ReadWrite);
-
-        *opaque = video;
-        *p_size = video->size;
-
-        return 0;
-    },
-    [](void* opaque, unsigned char* buf, size_t len) -> ssize_t {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
-
-        return ctx->read(reinterpret_cast<char*>(buf), len);
-    },
-    [](void* opaque, uint64_t seek) -> int {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
         
-        if (!ctx->seek(seek)) {
-            return -1;
-        }
-
-        return 0;
-    },
-    [](void* opaque) {
-        QBuffer* ctx = reinterpret_cast<QBuffer*>(opaque);
-        ctx->close();
+        play_pause_button->setText(player->isPaused() ? "Pause" : "Play");
+        player->pause(!player->isPaused());
     });
 
-    /*QEventLoop loop;
+    connect(progress_slider, &QSlider::sliderMoved, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::slider_seek));
+    connect(progress_slider, &QSlider::sliderPressed, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::slider_seek));
+    
+    connect(player, &QtAV::AVPlayer::positionChanged, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::update_slider));
+    connect(player, &QtAV::AVPlayer::started, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::update_slider));
+    connect(player, &QtAV::AVPlayer::notifyIntervalChanged, this, &USMPlayer::update_slider_unit);
 
-    QProcess* ffmpeg = new QProcess(&loop);
-    ffmpeg->setProcessChannelMode(QProcess::MergedChannels);
+    layout->addWidget(output->widget(), 0, 0);
+    layout->addWidget(progress_slider, 1, 0);
+    layout->addWidget(play_pause_button, 2, 0);
 
-    connect(ffmpeg, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), &loop, &QEventLoop::quit);
+    QtAV::setLogLevel(QtAV::LogOff);
+    QFutureWatcher<QBuffer*>* watcher = new QFutureWatcher<QBuffer*>(this);
 
-    connect(ffmpeg, &QProcess::started, [=]() {
-        ffmpeg->write(video->readAll());
-        ffmpeg->closeWriteChannel();
+    connect(watcher, &QFutureWatcher<QBuffer*>::finished, this, [=] {
+        video_file = watcher->result();
+
+        player->setIODevice(video_file);
+
+        delete watcher;
     });
 
-    connect(ffmpeg, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), &loop, [=]() {
-        QBuffer* buffer = new QBuffer();
-        buffer->setData(ffmpeg->readAllStandardOutput());
-        buffer->open(QBuffer::ReadOnly);
-        buffer->seek(0);
-        player->setMedia(QUrl("C:/Users/Nuan/Downloads/utf_tab07b3/out.mp4"));
-        player->play();
-    });
+    QFuture<QBuffer*> future = QtConcurrent::run(this, &USMPlayer::analyse);
 
-    ffmpeg->start("ffmpeg", QStringList() << "-v" << "quiet" << "-hide_banner" << "-f" << "mpegvideo" << "-i" << "-" << "-f" << "mpeg" << "-c" << "copy" << "-");
+    watcher->setFuture(future);
+}
 
-    loop.exec();*/
+void USMPlayer::slider_seek(int64_t val) {
+    if (player->isPlaying())
+        player->seek(val * slider_unit);
+}
+
+void USMPlayer::slider_seek() {
+    slider_seek(player->bufferValue());
+}
+
+void USMPlayer::update_slider(int64_t val) {
+    progress_slider->setRange(0, player->duration() / slider_unit);
+    progress_slider->setValue(val / slider_unit);
+}
+
+void USMPlayer::update_slider() {
+    update_slider(player->position());
+}
+
+void USMPlayer::update_slider_unit() {
+    std::cout << "update" << std::endl;
+    slider_unit = player->notifyInterval();
+    update_slider();
 }
 
 QBuffer* USMPlayer::analyse() {
@@ -347,6 +318,8 @@ QBuffer* USMPlayer::analyse() {
     if (!streams_setup) {
         throw USMFormatError("No CRID found");
     }
+
+    outstreams[1]->seek(0);
 
     return outstreams[1];
 }

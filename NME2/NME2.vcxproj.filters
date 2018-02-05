@@ -36,10 +36,7 @@
     <ClCompile Include="NME2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_NME2.cpp">
-      <Filter>Generated Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GeneratedFiles\qrc_NME2.cpp">
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_NME2.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
     <ClCompile Include="CripackReader.cpp">
@@ -48,13 +45,13 @@
     <ClCompile Include="NMEItemModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_NMEItemModel.cpp">
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_NMEItemModel.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
     <ClCompile Include="WWRiffReader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_NMETreeView.cpp">
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_NMETreeView.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
     <ClCompile Include="NMETreeView.cpp">
@@ -63,25 +60,22 @@
     <ClCompile Include="LineEditor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_LineEditor.cpp">
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_LineEditor.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
     <ClCompile Include="USMPlayer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_USMPlayer.cpp">
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_USMPlayer.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Release\moc_USMPlayer.cpp">
+    <ClCompile Include="GeneratedFiles\qrc_Resource.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="NME2.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="NME2.qrc">
-      <Filter>Resource Files</Filter>
     </CustomBuild>
     <CustomBuild Include="NMEItemModel.h">
       <Filter>Header Files</Filter>
@@ -94,6 +88,9 @@
     </CustomBuild>
     <CustomBuild Include="USMPlayer.h">
       <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Resource.qrc">
+      <Filter>Resource Files</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>

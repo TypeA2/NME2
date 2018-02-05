@@ -1,6 +1,6 @@
 #pragma once
 
-#include <qtreeview.h>
+#include <QTreeView>
 
 class NMETreeView : public QTreeView {
     Q_OBJECT

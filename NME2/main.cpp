@@ -2,8 +2,9 @@
 
 #include <Windows.h>
 #include <QtWidgets/QApplication>
+#include <QObject>
 
-#include <qmessagebox.h>
+#include <QMessageBox>
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
