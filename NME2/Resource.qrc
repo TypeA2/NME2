@@ -1,3 +1,5 @@
 <RCC>
-    <qresource prefix="/NME2"/>
+    <qresource prefix="/style">
+        <file>Style.qss</file>
+    </qresource>
 </RCC>

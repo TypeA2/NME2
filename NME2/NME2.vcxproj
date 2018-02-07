@@ -93,7 +93,9 @@
     <ClCompile Include="NME2.cpp" />
     <ClCompile Include="USMPlayer.cpp" />
     <ClCompile Include="WWRiffReader.cpp" />
-    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_LineEditor.cpp" />
+    <ClCompile Include="GeneratedFiles\$(Configuration)\moc_LineEditor.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="GeneratedFiles\$(Configuration)\moc_NME2.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -175,6 +177,7 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\qrc_%(Filename).cpp;%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\rcc.exe" -name "%(Filename)" -no-compress "%(FullPath)" -o .\GeneratedFiles\qrc_%(Filename).cpp</Command>
     </CustomBuild>
+    <None Include="Style.qss" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

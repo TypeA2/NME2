@@ -107,4 +107,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Style.qss">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

@@ -12,8 +12,26 @@
 #include <QFutureWatcher>
 #include <QPushButton>
 #include <QSlider>
+#include <QResizeEvent>
 
 #include <QtAV/QtAV>
+
+#include <math.h>
+
+class USMPLayerVideoOutputPrivate : public QtAV::VideoOutput {
+    Q_OBJECT
+
+    public:
+    explicit USMPLayerVideoOutputPrivate(QWidget* parent = nullptr) : QtAV::VideoOutput(parent) { }
+
+    signals:
+    void toggle_fullscreen();
+
+    protected:
+    void mouseDoubleClickEvent(QMouseEvent* e) {
+        qDebug() << "doubleclick";
+    }
+};
 
 class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
@@ -24,7 +42,7 @@ class USMPlayer : public QWidget, public CripackReader {
     ~USMPlayer() {
         delete player;
         delete output;
-        delete video_file;
+        delete video;
         delete play_pause_button;
         delete progress_slider;
     }
@@ -34,12 +52,35 @@ class USMPlayer : public QWidget, public CripackReader {
     void slider_seek();
     void update_slider(int64_t val);
     void update_slider();
-    void update_slider_unit();
+
+    protected:
+    void resizeEvent(QResizeEvent* e);
+    void mouseDoubleClickEvent(QMouseEvent* e) {
+        layout->itemAt(0)->widget()->showFullScreen();
+    }
 
     private:
+    
+    struct StreamSpecs {
+        uint32_t disp_width;
+        uint32_t disp_height;
+        uint32_t total_frames;
+        uint32_t framerate_n;
+    };
+
+    struct Stream {
+        bool alive;
+        uint32_t stmid;
+        uint16_t chno;
+        uint64_t datasize;
+        uint64_t bytes_read;
+        uint64_t payload_size;
+
+        StreamSpecs specs;
+    };
+
     std::ifstream infile;
     uint64_t fsize;
-    QByteArray video;
 
     std::string infile_path;
 
@@ -49,29 +90,19 @@ class USMPlayer : public QWidget, public CripackReader {
     QGridLayout* layout;
 
     QtAV::AVPlayer* player;
-    QtAV::VideoOutput* output;
+    USMPLayerVideoOutputPrivate* output;
     int64_t slider_unit;
     
-    QBuffer* video_file;
+    std::vector<Stream> streams;
+    std::vector<QBuffer*> buffers;
+    QBuffer* video;
+    Stream stream;
+    uint32_t index;
+
+    long double position_modifier;
 
     QPushButton* play_pause_button;
     QSlider* progress_slider;
 
-    QBuffer* analyse();
-
-    struct StreamInfo {
-        std::string fname;
-        uint64_t fsize;
-        uint64_t dsize;
-
-        uint32_t stmid;
-        uint16_t chno;
-        uint16_t minchk;
-        uint32_t minbuf;
-        uint32_t avbps;
-
-        uint64_t bytes_read;
-        uint64_t payload_bytes;
-        uint32_t alive;
-    };
+    void analyse();
 };
