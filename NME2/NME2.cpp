@@ -176,7 +176,6 @@ void NME2::model_selection_changed(const QItemSelection & /*newSelection*/, cons
 
     QModelIndex selected = view->selectionModel()->currentIndex();
 
-    //QtConcurrent::run(this, &NME2::check_model_selection, selected);
     check_model_selection(selected);
 }
 
@@ -209,6 +208,43 @@ void NME2::check_model_selection(QModelIndex& selected) {
         } else if (ends_with(fname, ".usm")) {
             try {
                 USMPlayer* player = new USMPlayer(path, file_icons);
+
+                connect(player, &USMPlayer::fullscreen_state_changed, this, [=]() {
+                    QGridLayout* layout = static_cast<QGridLayout*>(centralWidget()->layout());
+                    if (windowState() & Qt::WindowFullScreen) {
+                        this->showNormal();
+                        
+                        layout->setContentsMargins(fullscreen_margins_cache);
+                        active_item_layout->setContentsMargins(active_layout_margins_cache);
+
+                        view->show();
+
+                        layout->removeWidget(active_item_widget);
+                        
+                        layout->addWidget(view, 0, 0);
+                        layout->addWidget(active_item_widget, 0, 1);
+
+                        this->resize(fullscreen_size_cache);
+                        this->move(fullscreen_pos_cache);
+                    } else {
+                        fullscreen_size_cache = this->size();
+                        fullscreen_pos_cache = this->pos();
+                        fullscreen_margins_cache = layout->contentsMargins();
+                        active_layout_margins_cache = active_item_layout->contentsMargins();
+
+                        layout->setContentsMargins(0, 0, 0, 0);
+                        active_item_layout->setContentsMargins(0, 0, 0, 0);
+
+                        layout->removeWidget(view);
+                        layout->removeWidget(active_item_widget);
+
+                        view->hide();
+
+                        layout->addWidget(active_item_widget, 0, 0, 1, 2);
+
+                        this->showFullScreen();
+                    }
+                });
 
                 active_item_layout->addWidget(player);
             } catch (const USMFormatError& e) {

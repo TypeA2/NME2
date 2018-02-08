@@ -4,14 +4,26 @@
 #include "Error.h"
 
 USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidget* parent) : QWidget(parent), CripackReader(infile, icons, false),
-    infile(fpath.c_str(), std::ios::binary | std::ios::in),
-    layout(new QGridLayout(this)),
-    play_pause_button(new QPushButton("Loading")),
-    player(new QtAV::AVPlayer(this)),
-    output(new USMPLayerVideoOutputPrivate(this)),
-    progress_slider(new QSlider(Qt::Horizontal)),
-    slider_unit(1000),
-    infile_path(fpath) {
+infile(fpath.c_str(), std::ios::binary | std::ios::in),
+layout(new QGridLayout(this)),
+play_pause_button(new QPushButton("Loading")),
+player(new QtAV::AVPlayer(this)),
+output(new QtAV::VideoOutput(this)),
+progress_slider(new NMESlider(Qt::Horizontal)),
+slider_unit(1000),
+infile_path(fpath) {
+    qApp->installEventFilter(this);
+
+    mmove_timer.setSingleShot(true);
+
+    connect(&mmove_timer, &QTimer::timeout, this, [=] {
+        if (fullscreen) {
+            progress_slider->hide();
+            play_pause_button->hide();
+        }
+    });
+
+    layout->setContentsMargins(0, 0, 0, 0);
 
     this->setLayout(layout);
 
@@ -24,7 +36,6 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
     player->setRenderer(output);
     output->setQuality(QtAV::VideoRenderer::QualityBest);
 
-
     play_pause_button->setIcon(play_icon);
 
     QFile qss(":/style/Style.qss");
@@ -35,27 +46,26 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
     play_pause_button->setDisabled(true);
     progress_slider->setDisabled(true);
 
-    connect(play_pause_button, &QPushButton::released, this, [=]() {
-        if (!player->isPlaying()) {
-            play_pause_button->setText("Pause");
-            player->play();
+    connect(play_pause_button, &QPushButton::released, this, &USMPlayer::toggle_play_state);
 
-            return;
-        }
+    connect(progress_slider, &NMESlider::sliderMoved, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::slider_seek));
+    connect(progress_slider, &NMESlider::sliderPressed, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::slider_seek));
 
-        play_pause_button->setText(player->isPaused() ? "Pause" : "Play");
-        player->pause(!player->isPaused());
-    });
-
-    connect(progress_slider, &QSlider::sliderMoved, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::slider_seek));
-    connect(progress_slider, &QSlider::sliderPressed, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::slider_seek));
-    
     connect(player, &QtAV::AVPlayer::positionChanged, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::update_slider));
     connect(player, &QtAV::AVPlayer::started, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::update_slider));
+    connect(player, &QtAV::AVPlayer::stateChanged, this, [=](QtAV::AVPlayer::State state) {
+        if (state == QtAV::AVPlayer::StoppedState) {
+            video->seek(0);
+            progress_slider->setValue(0);
+            toggle_play_state();
+        }
+    });
 
-    layout->addWidget(output->widget() , 0, 0);
-    layout->addWidget(progress_slider , 1, 0);
-    layout->addWidget(play_pause_button , 2, 0);
+    output_widget = output->widget();
+
+    layout->addWidget(output_widget, 0, 0);
+    layout->addWidget(progress_slider, 1, 0);
+    layout->addWidget(play_pause_button, 2, 0);
 
     QtAV::setLogLevel(QtAV::LogOff);
     QFutureWatcher<void>* watcher = new QFutureWatcher<void>(this);
@@ -65,35 +75,31 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
         stream = streams.at(index);
 
         player->setIODevice(video);
-        player->setRepeat(-1);
 
-        progress_slider->setRange(0, streams[index].specs.total_frames);
+        progress_slider->setRange(0, stream.specs.total_frames);
 
-        play_pause_button->setText("Play");
+        play_pause_button->setText("Pause");
 
         play_pause_button->setDisabled(false);
         progress_slider->setDisabled(false);
 
-        position_modifier = 1000.L / (static_cast<long double>(streams[index].specs.framerate_n) / 1000.L);
+        position_modifier = 1000.L / (static_cast<long double>(stream.specs.framerate_n) / 1000.L);
 
         output->setRegionOfInterest(0, 0, streams[index].specs.disp_width, streams[index].specs.disp_height);
-        output->setOutAspectRatio(static_cast<double>(streams[index].specs.disp_width) * static_cast<double>(streams[index].specs.disp_height));
-
-        player->setStartPosition(1);
+        output->setOutAspectRatio(static_cast<double>(stream.specs.disp_width) * static_cast<double>(stream.specs.disp_height));
 
         std::unique_ptr<QMetaObject::Connection> pconn{ new QMetaObject::Connection };
         QMetaObject::Connection& conn = *pconn;
-        conn = connect(player, &QtAV::AVPlayer::seekFinished, this, [=]() {
-            player->pause(true);
-
+        conn = connect(player, &QtAV::AVPlayer::started, this, [=]() {
             QCoreApplication::postEvent(this, new QResizeEvent(this->size(), this->size()));
 
             disconnect(conn);
         });
 
         player->play();
-        
+
         delete watcher;
+        
     });
 
     QFuture<void> future = QtConcurrent::run(this, &USMPlayer::analyse);
@@ -103,9 +109,7 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
 
 void USMPlayer::slider_seek(int64_t val) {
     if (player->isPlaying()) {
-        player->blockSignals(true);
         player->setPosition(std::llroundl(val * position_modifier));
-        player->blockSignals(false);
     }
 }
 
@@ -114,6 +118,9 @@ void USMPlayer::slider_seek() {
 }
 
 void USMPlayer::update_slider(int64_t val) {
+    if (player->isPaused() && play_pause_button->text() == "Pause")
+        toggle_play_state();
+
     progress_slider->setValue(std::llroundl(player->position() / position_modifier));
 }
 
@@ -276,7 +283,7 @@ void USMPlayer::analyse() {
                         streams[current_stream].specs = specs;
 
                         delete utf;
-                        
+
                         break;
                     }
                 case 3:
@@ -304,7 +311,7 @@ void USMPlayer::analyse() {
         }
 
         infile.seekg(footer_size, std::ios::cur);
-        
+
     } while (streams_live > 0);
 
     for (uint32_t i = 0; i < buffers.size(); i++) {
@@ -320,5 +327,66 @@ void USMPlayer::analyse() {
 void USMPlayer::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
 
-    layout->itemAt(0)->widget()->setMaximumHeight(output->rendererWidth() / static_cast<double>(streams[index].specs.disp_width) * static_cast<double>(streams[index].specs.disp_height));
+    layout->itemAt(0)->widget()->setMaximumHeight(floor(double(output->rendererWidth()) / double(streams[index].specs.disp_width) * double(streams[index].specs.disp_height)));
+}
+
+bool USMPlayer::eventFilter(QObject* obj, QEvent* event) {
+    Q_UNUSED(obj);
+
+    switch (event->type()) {
+        case QEvent::MouseButtonDblClick: {
+                if (output_widget->rect().contains(output_widget->mapFromGlobal(QCursor::pos()))) {
+                    fullscreen = !fullscreen;
+
+                    emit fullscreen_state_changed();
+
+                }
+
+                return true;
+
+                break;
+            }
+
+        case QEvent::MouseMove: {
+                if (fullscreen) {
+                    if (mmove_timer.isActive())
+                        mmove_timer.stop();
+
+                    progress_slider->show();
+                    play_pause_button->show();
+
+                    mmove_timer.start(1250);
+                } else {
+                    if (mmove_timer.isActive())
+                        mmove_timer.stop();
+
+                    if(!progress_slider->isVisible())
+                        progress_slider->show();
+
+                    if(!play_pause_button->isVisible())
+                        play_pause_button->show();
+
+                    return false;
+                }
+
+                return true;
+
+                break;
+            }
+
+        default:
+            return false;
+    }
+}
+
+void USMPlayer::toggle_play_state() {
+    if (!player->isPlaying()) {
+        play_pause_button->setText("Pause");
+        player->play();
+
+        return;
+    }
+
+    play_pause_button->setText(player->isPaused() ? "Pause" : "Play");
+    player->pause(!player->isPaused());
 }

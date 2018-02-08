@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CripackReader.h"
+#include "NMESlider.h"
 
 #include <QWidget>
 #include <QGridLayout>
@@ -11,27 +12,11 @@
 #include <QtConcurrent>
 #include <QFutureWatcher>
 #include <QPushButton>
-#include <QSlider>
 #include <QResizeEvent>
 
-#include <QtAV/QtAV>
+#include <QtAV\QtAV>
 
 #include <math.h>
-
-class USMPLayerVideoOutputPrivate : public QtAV::VideoOutput {
-    Q_OBJECT
-
-    public:
-    explicit USMPLayerVideoOutputPrivate(QWidget* parent = nullptr) : QtAV::VideoOutput(parent) { }
-
-    signals:
-    void toggle_fullscreen();
-
-    protected:
-    void mouseDoubleClickEvent(QMouseEvent* e) {
-        qDebug() << "doubleclick";
-    }
-};
 
 class USMPlayer : public QWidget, public CripackReader {
     Q_OBJECT
@@ -42,22 +27,29 @@ class USMPlayer : public QWidget, public CripackReader {
     ~USMPlayer() {
         delete player;
         delete output;
-        delete video;
+        delete output_widget;
         delete play_pause_button;
         delete progress_slider;
+
+        for (QBuffer* buffer : buffers) {
+            delete buffer;
+        }
     }
+
+    signals:
+    void fullscreen_state_changed();
 
     private slots:
     void slider_seek(int64_t val);
     void slider_seek();
     void update_slider(int64_t val);
     void update_slider();
+    void toggle_play_state();
 
     protected:
     void resizeEvent(QResizeEvent* e);
-    void mouseDoubleClickEvent(QMouseEvent* e) {
-        layout->itemAt(0)->widget()->showFullScreen();
-    }
+
+    bool eventFilter(QObject* obj, QEvent* event);
 
     private:
     
@@ -79,6 +71,9 @@ class USMPlayer : public QWidget, public CripackReader {
         StreamSpecs specs;
     };
 
+    bool fullscreen = false;
+    QTimer mmove_timer;
+
     std::ifstream infile;
     uint64_t fsize;
 
@@ -90,8 +85,9 @@ class USMPlayer : public QWidget, public CripackReader {
     QGridLayout* layout;
 
     QtAV::AVPlayer* player;
-    USMPLayerVideoOutputPrivate* output;
+    QtAV::VideoOutput* output;
     int64_t slider_unit;
+    QWidget* output_widget;
     
     std::vector<Stream> streams;
     std::vector<QBuffer*> buffers;
@@ -102,7 +98,7 @@ class USMPlayer : public QWidget, public CripackReader {
     long double position_modifier;
 
     QPushButton* play_pause_button;
-    QSlider* progress_slider;
+    NMESlider* progress_slider;
 
     void analyse();
 };

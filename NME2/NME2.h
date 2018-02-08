@@ -101,6 +101,10 @@ class NME2 : public QMainWindow {
     QVBoxLayout* active_item_layout;
 
     std::map<std::string, QString> txt_file_cache;
+    QSize fullscreen_size_cache;
+    QPoint fullscreen_pos_cache;
+    QMargins fullscreen_margins_cache;
+    QMargins active_layout_margins_cache;
 
     void generate_file_icons();
     void create_tree_view();
