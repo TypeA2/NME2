@@ -4,7 +4,7 @@
 #include "NMESlider.h"
 
 #include <QWidget>
-#include <QGridLayout>
+#include <QFormLayout>
 #include <QVideoWidget>
 #include <QMediaPlayer>
 #include <QLabel>
@@ -13,6 +13,8 @@
 #include <QFutureWatcher>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QDesktopWidget>
+#include <QtWidgets\QApplication>
 
 #include <QtAV\QtAV>
 
@@ -72,7 +74,6 @@ class USMPlayer : public QWidget, public CripackReader {
     };
 
     bool fullscreen = false;
-    QTimer mmove_timer;
 
     std::ifstream infile;
     uint64_t fsize;

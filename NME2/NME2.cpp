@@ -229,6 +229,7 @@ void NME2::check_model_selection(QModelIndex& selected) {
                     } else {
                         fullscreen_size_cache = this->size();
                         fullscreen_pos_cache = this->pos();
+
                         fullscreen_margins_cache = layout->contentsMargins();
                         active_layout_margins_cache = active_item_layout->contentsMargins();
 

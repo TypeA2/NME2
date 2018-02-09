@@ -14,15 +14,6 @@ slider_unit(1000),
 infile_path(fpath) {
     qApp->installEventFilter(this);
 
-    mmove_timer.setSingleShot(true);
-
-    connect(&mmove_timer, &QTimer::timeout, this, [=] {
-        if (fullscreen) {
-            progress_slider->hide();
-            play_pause_button->hide();
-        }
-    });
-
     layout->setContentsMargins(0, 0, 0, 0);
 
     this->setLayout(layout);
@@ -327,46 +318,53 @@ void USMPlayer::analyse() {
 void USMPlayer::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
 
-    layout->itemAt(0)->widget()->setMaximumHeight(floor(double(output->rendererWidth()) / double(streams[index].specs.disp_width) * double(streams[index].specs.disp_height)));
+    output_widget->setMaximumHeight(floor(double(output->rendererWidth()) / double(streams[index].specs.disp_width) * double(streams[index].specs.disp_height)));
+
 }
 
 bool USMPlayer::eventFilter(QObject* obj, QEvent* event) {
     Q_UNUSED(obj);
 
     switch (event->type()) {
+        case QEvent::KeyPress: {
+                QKeyEvent* ke = static_cast<QKeyEvent*>(event);
+
+                if (ke->key() == Qt::Key_Space) {
+                    play_pause_button->click();
+
+                    return true;
+
+                    break;
+                } else if (ke->key() == Qt::Key_Escape && fullscreen) {
+                    if (!output_widget->rect().contains(output_widget->mapFromGlobal(QCursor::pos())) && fullscreen) {
+                        fullscreen = false;
+
+                        emit fullscreen_state_changed();
+                    }
+                } else {
+                    return true;
+                    
+                    break;
+                }
+            }
+
         case QEvent::MouseButtonDblClick: {
                 if (output_widget->rect().contains(output_widget->mapFromGlobal(QCursor::pos()))) {
                     fullscreen = !fullscreen;
 
                     emit fullscreen_state_changed();
-
                 }
 
-                return true;
-
-                break;
-            }
-
-        case QEvent::MouseMove: {
                 if (fullscreen) {
-                    if (mmove_timer.isActive())
-                        mmove_timer.stop();
+                    progress_slider->hide();
+                    play_pause_button->hide();
 
+                    setCursor(Qt::BlankCursor);
+                } else {
                     progress_slider->show();
                     play_pause_button->show();
 
-                    mmove_timer.start(1250);
-                } else {
-                    if (mmove_timer.isActive())
-                        mmove_timer.stop();
-
-                    if(!progress_slider->isVisible())
-                        progress_slider->show();
-
-                    if(!play_pause_button->isVisible())
-                        play_pause_button->show();
-
-                    return false;
+                    unsetCursor();
                 }
 
                 return true;
