@@ -14,8 +14,9 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QDesktopWidget>
-#include <QtWidgets\QApplication>
+#include <QFileDialog>
 
+#include <QtWidgets\QApplication>
 #include <QtAV\QtAV>
 
 #include <math.h>
@@ -33,9 +34,7 @@ class USMPlayer : public QWidget, public CripackReader {
         delete play_pause_button;
         delete progress_slider;
 
-        for (QBuffer* buffer : buffers) {
-            delete buffer;
-        }
+        delete video;
     }
 
     signals:
@@ -47,6 +46,7 @@ class USMPlayer : public QWidget, public CripackReader {
     void update_slider(int64_t val);
     void update_slider();
     void toggle_play_state();
+    void export_mpeg();
 
     protected:
     void resizeEvent(QResizeEvent* e);
@@ -54,23 +54,12 @@ class USMPlayer : public QWidget, public CripackReader {
     bool eventFilter(QObject* obj, QEvent* event);
 
     private:
-    
-    struct StreamSpecs {
+
+    struct Stream {
         uint32_t disp_width;
         uint32_t disp_height;
         uint32_t total_frames;
         uint32_t framerate_n;
-    };
-
-    struct Stream {
-        bool alive;
-        uint32_t stmid;
-        uint16_t chno;
-        uint64_t datasize;
-        uint64_t bytes_read;
-        uint64_t payload_size;
-
-        StreamSpecs specs;
     };
 
     bool fullscreen = false;
@@ -90,16 +79,15 @@ class USMPlayer : public QWidget, public CripackReader {
     int64_t slider_unit;
     QWidget* output_widget;
     
-    std::vector<Stream> streams;
-    std::vector<QBuffer*> buffers;
     QBuffer* video;
+    QBuffer* audio;
     Stream stream;
-    uint32_t index;
 
     long double position_modifier;
 
     QPushButton* play_pause_button;
     NMESlider* progress_slider;
+    QPushButton* export_button;
 
     void analyse();
 };

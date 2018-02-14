@@ -7,6 +7,7 @@ USMPlayer::USMPlayer(std::string fpath, std::map<uint32_t, QIcon>& icons, QWidge
 infile(fpath.c_str(), std::ios::binary | std::ios::in),
 layout(new QGridLayout(this)),
 play_pause_button(new QPushButton("Loading")),
+export_button(new QPushButton("Export")),
 player(new QtAV::AVPlayer(this)),
 output(new QtAV::VideoOutput(this)),
 progress_slider(new NMESlider(Qt::Horizontal)),
@@ -36,8 +37,10 @@ infile_path(fpath) {
 
     play_pause_button->setDisabled(true);
     progress_slider->setDisabled(true);
+    export_button->setDisabled(true);
 
     connect(play_pause_button, &QPushButton::released, this, &USMPlayer::toggle_play_state);
+    connect(export_button, &QPushButton::released, this, &USMPlayer::export_mpeg);
 
     connect(progress_slider, &NMESlider::sliderMoved, this, static_cast<void (USMPlayer::*)(int64_t)>(&USMPlayer::slider_seek));
     connect(progress_slider, &NMESlider::sliderPressed, this, static_cast<void (USMPlayer::*)(void)>(&USMPlayer::slider_seek));
@@ -57,27 +60,26 @@ infile_path(fpath) {
     layout->addWidget(output_widget, 0, 0);
     layout->addWidget(progress_slider, 1, 0);
     layout->addWidget(play_pause_button, 2, 0);
+    layout->addWidget(export_button, 3, 0);
 
     QtAV::setLogLevel(QtAV::LogOff);
     QFutureWatcher<void>* watcher = new QFutureWatcher<void>(this);
 
     connect(watcher, &QFutureWatcher<void>::finished, this, [=] {
-        video = buffers.at(index);
-        stream = streams.at(index);
-
         player->setIODevice(video);
 
-        progress_slider->setRange(0, stream.specs.total_frames);
+        progress_slider->setRange(0, stream.total_frames);
 
         play_pause_button->setText("Pause");
 
         play_pause_button->setDisabled(false);
         progress_slider->setDisabled(false);
+        export_button->setDisabled(false);
 
-        position_modifier = 1000.L / (static_cast<long double>(stream.specs.framerate_n) / 1000.L);
+        position_modifier = 1000.L / (static_cast<long double>(stream.framerate_n) / 1000.L);
 
-        output->setRegionOfInterest(0, 0, streams[index].specs.disp_width, streams[index].specs.disp_height);
-        output->setOutAspectRatio(static_cast<double>(stream.specs.disp_width) * static_cast<double>(stream.specs.disp_height));
+        output->setRegionOfInterest(0, 0, stream.disp_width, stream.disp_height);
+        output->setOutAspectRatio(static_cast<double>(stream.disp_width) * static_cast<double>(stream.disp_height));
 
         std::unique_ptr<QMetaObject::Connection> pconn{ new QMetaObject::Connection };
         QMetaObject::Connection& conn = *pconn;
@@ -90,12 +92,47 @@ infile_path(fpath) {
         player->play();
 
         delete watcher;
-        
+
     });
 
     QFuture<void> future = QtConcurrent::run(this, &USMPlayer::analyse);
 
     watcher->setFuture(future);
+}
+
+void USMPlayer::export_mpeg() {
+    if (video && video->size() > 96) {
+        QString outfile = QFileDialog::getSaveFileName(this, "Select output file", QString(infile_path.c_str()).replace(".usm", ".mpg"), "MPEG-2 ES (*.mpg)");
+        if (!outfile.isEmpty()) {
+            QtConcurrent::run([&]() {
+                bool resume = false;
+                if (player->state() == QtAV::AVPlayer::PlayingState) {
+                    player->pause(true);
+                    resume = true;
+                }
+
+                int64_t streampos = video->pos();
+
+                video->seek(0);
+
+                QFile out(outfile);
+
+                out.open(QIODevice::WriteOnly);
+
+                out.write(video->readAll());
+
+                out.close();
+
+                video->seek(streampos);
+
+                if (resume) {
+                    player->pause(false);
+                }
+
+                return nullptr; // Segfault without this, seriously?
+            });
+        }
+    }
 }
 
 void USMPlayer::slider_seek(int64_t val) {
@@ -120,205 +157,121 @@ void USMPlayer::update_slider() {
 }
 
 void USMPlayer::analyse() {
-    uint32_t streams_live = 0;
     uint32_t n_streams = 0;
-    bool streams_ready = false;
+    
+    {
+        {
+            char crid_hdr[4];
 
-    char* strtbl;
+            infile.read(crid_hdr, 4);
 
-    do {
-        uint32_t stmid = read_32_be(infile);
-        uint32_t block_size = read_32_be(infile);
-        uint32_t current_stream;
-
-        if (!streams_ready) {
-            if (stmid != 'CRID') {
+            if (memcmp(crid_hdr, "CRID", 4) != 0) {
                 throw USMFormatError("Invalid CRID header");
             }
-        } else {
-            if (n_streams == 0) {
-                throw USMFormatError("Expected at least 1 stream");
-            }
-
-            for (current_stream = 1; current_stream < n_streams; current_stream++) {
-                if (stmid == streams[current_stream].stmid) {
-                    break;
-                }
-            }
-
-            if (current_stream == n_streams) {
-                throw USMFormatError("Unknown stmid");
-            }
-
-            if (!streams[current_stream].alive) {
-                throw USMFormatError("Stream should be alive");
-            }
-
-            streams[current_stream].bytes_read += block_size;
         }
 
+        uint32_t block_size = read_32_be(infile);
         uint16_t header_size = read_16_be(infile);
 
         if (header_size != 0x18) {
-            throw USMFormatError("Expected header size of 0x18");
+            throw USMFormatError("Expected CRID header size of 0x18");
         }
 
         uint16_t footer_size = read_16_be(infile);
+
         uint32_t payload_size = block_size - header_size - footer_size;
         uint32_t block_type = read_32_be(infile);
+
+        if (block_type != 1) {
+            throw USMFormatError("CRID type should be 1");
+        }
 
         infile.seekg(8, std::ios::cur);
 
         if (read_32_be(infile) != 0 || read_32_be(infile) != 0) {
-            throw USMFormatError("Unkown byte format");
+            throw USMFormatError("Unknown byte format");
         }
 
-        if (!streams_ready) {
-            if (block_type != 1) {
-                throw USMFormatError("CRID type should be 1");
-            }
+        infile.seekg(payload_size + footer_size, std::ios::cur);
+    }
+    
+    bool finished = false;
+    video = new QBuffer();
+    video->open(QIODevice::ReadWrite);
 
-            uint64_t criusf_offset = infile.tellg();
+    while (!finished) {
+        if (read_32_be(infile) != '@SFV') {
+            continue;
+        }
 
-            this->read_utf_noheader();
-            UTF* utf = new UTF(reinterpret_cast<unsigned char*>(utf_packet));
+        uint32_t size = read_32_be(infile);
+        uint16_t header_size = read_16_be(infile);
+        uint16_t footer_size = read_16_be(infile);
+        uint32_t payload_size = size - header_size - footer_size;
+        uint32_t type = read_32_be(infile);
 
-            if (utf->n_rows < 1) {
-                throw USMFormatError("Expected at least 1 row");
-            }
+        infile.seekg(16, std::ios::cur);
 
-            n_streams = utf->n_rows;
+        switch (type) {
+            case 0: { // Data
+                    char* payload = new char[payload_size];
 
-            uint64_t data_offset = criusf_offset + utf->get_data_offset();
+                    infile.read(payload, payload_size);
 
-            strtbl = utf->load_strtbl(infile, criusf_offset - 8);
+                    video->write(payload, payload_size);
 
-            if (strcmp(&strtbl[utf->get_table_name()], "CRIUSF_DIR_STREAM") != 0) {
-                throw USMFormatError("Expected CRIUSF_DRI_STREAM");
-            }
+                    delete payload;
 
-            for (uint32_t i = 0; i < n_streams; i++) {
-                Stream stream;
-                stream.stmid = get_column_data(utf, i, "stmid").toUInt();
-                stream.chno = get_column_data(utf, i, "chno").toUInt();
-                stream.datasize = get_column_data(utf, i, "datasize").toULongLong();
-
-                if (i == 0) {
-                    if (stream.stmid != 0) {
-                        throw USMFormatError("Expected identifier 0 for stream 0");
-                    }
-
-                    // 0xffffU == -1
-                    if (stream.chno != 0xffff) {
-                        throw USMFormatError("Expected chno -1 for stream 0");
-                    }
-                } else {
-                    if (stream.stmid != '@SFV' && stream.stmid != '@SFA') {
-                        throw USMFormatError("Unknown identifier");
-                    }
-
-                    if (stream.datasize != 0) {
-                        throw USMFormatError("Expected datasize of 0");
-                    }
+                    break;
                 }
 
-                streams.push_back(stream);
-            }
+            case 1: { // Metadata
+                    uint64_t startpos = infile.tellg();
 
-            buffers.push_back(nullptr);
-            streams[0].alive = false;
+                    this->read_utf_noheader();
+                    UTF* utf = new UTF(reinterpret_cast<unsigned char*>(utf_packet));
 
-            for (uint32_t i = 1; i < n_streams; i++) {
-                buffers.push_back(new QBuffer());
-                buffers[i]->open(QIODevice::ReadWrite);
+                    stream.disp_width = get_column_data(utf, 0, "disp_width").toUInt();
+                    stream.disp_height = get_column_data(utf, 0, "disp_height").toUInt();
+                    stream.total_frames = get_column_data(utf, 0, "total_frames").toUInt();
+                    stream.framerate_n = get_column_data(utf, 0, "framerate_n").toUInt();
 
-                streams[i].alive = true;
-                streams[i].bytes_read = 0;
-                streams[i].payload_size = 0;
+                    delete utf;
+                    delete utf_packet; 
 
-                streams_live++;
-            }
+                    infile.seekg(startpos + payload_size, std::ios::beg);
 
-            streams_ready = true;
-
-            infile.seekg(criusf_offset + payload_size, std::ios::beg);
-
-            delete utf;
-        } else {
-            switch (block_type) {
-                case 0: {
-                        char* payload = new char[payload_size];
-
-                        infile.read(payload, payload_size);
-
-                        buffers[current_stream]->write(payload, payload_size);
-                        streams[current_stream].payload_size += payload_size;
-
-                        delete payload;
-
-                        break;
-                    }
-
-                case 1: {
-                        uint64_t start = infile.tellg();
-
-                        this->read_utf_noheader();
-                        UTF* utf = new UTF(reinterpret_cast<unsigned char*>(utf_packet));
-
-                        StreamSpecs specs;
-                        specs.disp_width = get_column_data(utf, 0, "disp_width").toUInt();
-                        specs.disp_height = get_column_data(utf, 0, "disp_height").toUInt();
-                        specs.total_frames = get_column_data(utf, 0, "total_frames").toUInt();
-                        specs.framerate_n = get_column_data(utf, 0, "framerate_n").toUInt();
-
-                        streams[current_stream].specs = specs;
-
-                        delete utf;
-
-                        break;
-                    }
-                case 3:
-                    infile.seekg(payload_size, std::ios::cur);
                     break;
+                }
 
-                case 2: {
-                        char* payload = new char[payload_size];
+            case 2: { // Metadata
+                    char* payload = new char[payload_size];
 
-                        infile.read(payload, payload_size);
+                    infile.read(payload, payload_size);
 
-                        if (strncmp(payload, "#CONTENTS END   ===============", payload_size) == 0) {
-                            streams[current_stream].alive = false;
+                    if (strncmp(payload, "#CONTENTS END   ===============", payload_size) == 0) {
+                        video->seek(0);
 
-                            streams_live--;
-                        }
-
-                        delete payload;
-                        break;
+                        finished = true;
                     }
 
-                default:
-                    throw USMFormatError("Unknown block type");
-            }
+                    delete payload;
+                    break;
+                }
+
+            case 3: // Header
+                infile.seekg(payload_size, std::ios::cur);
+                break;
         }
 
         infile.seekg(footer_size, std::ios::cur);
-
-    } while (streams_live > 0);
-
-    for (uint32_t i = 0; i < buffers.size(); i++) {
-        if (streams[i].stmid == '@SFV') {
-            index = i;
-
-            buffers[i]->seek(0);
-            break;
-        }
     }
 }
 
 void USMPlayer::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
 
-    output_widget->setMaximumHeight(floor(double(output->rendererWidth()) / double(streams[index].specs.disp_width) * double(streams[index].specs.disp_height)));
+    output_widget->setMaximumHeight(floor(double(output->rendererWidth()) / double(stream.disp_width) * double(stream.disp_height)));
 
 }
 
