@@ -27,3 +27,9 @@ class WWRiffFormatError : public FormatError {
     WWRiffFormatError(const char* err) : FormatError(err) { }
     WWRiffFormatError(QString err) : FormatError(err.toStdString().c_str()) { }
 };
+
+class BitStreamError : public FormatError {
+    public:
+    BitStreamError(const char* err) : FormatError(err) { }
+    BitStreamError(QString err) : FormatError(err.toStdString().c_str()) { }
+};

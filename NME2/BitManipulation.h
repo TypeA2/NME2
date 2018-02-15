@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QBuffer>
+
 #include <cstdint>
 #include <fstream>
 
@@ -38,6 +40,25 @@ namespace {
         s.read(b, 4);
 
         return read_32_le(reinterpret_cast<unsigned char*>(b));
+    }
+
+    uint32_t read_32_le(QBuffer* b) {
+        return read_32_le(reinterpret_cast<unsigned char*>(b->read(4).data()));
+    }
+
+    uint16_t read_16_le(unsigned char b[4]) {
+        uint16_t v = 0;
+
+        for (char i = 1; i >= 0; i--) {
+            v <<= 8;
+            v |= b[i];
+        }
+
+        return v;
+    }
+
+    uint16_t read_16_le(QBuffer* b) {
+        return read_16_le(reinterpret_cast<unsigned char*>(b->read(2).data()));
     }
 
     uint64_t read_64_be(unsigned char b[4]) {
@@ -98,4 +119,10 @@ namespace {
         return read_16_be(reinterpret_cast<unsigned char*>(b));
     }
 
+    void write_32_le(unsigned char b[4], uint32_t v) {
+        for (char i = 0; i < 4; i++) {
+            b[i] = v & 0xFF;
+            v >>= 8;
+        }
+    }
 }

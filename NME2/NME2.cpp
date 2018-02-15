@@ -253,7 +253,7 @@ void NME2::check_model_selection(QModelIndex& selected) {
             }
         } else if (ends_with(fname, ".wem")) {
             try {
-                WWRiffReader* player = new WWRiffReader(path, file_icons, true);
+                WWRiffReader* player = new WWRiffReader(path, file_icons);
 
                 active_item_layout->addWidget(player);
             } catch (const WWRiffFormatError& e) {
@@ -270,6 +270,10 @@ void NME2::check_model_selection(QModelIndex& selected) {
             std::cout << file.file_size << " " << file.extract_size << std::endl;
         }
     } else if (selected.data(ReaderTypeRole).toString() == "WWRiff") {
-        WWRiffReader::WW
+        WWRiffReader* player = selected.data(ReaderRole).value<WWRiffReader*>();
+
+        player->set_embedded_file(selected.data(EmbeddedRole).value<WWRiffReader::WWRiffFile>());
+
+        active_item_layout->addWidget(player);
     }
 }
