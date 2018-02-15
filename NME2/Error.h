@@ -21,3 +21,9 @@ class USMFormatError : public FormatError {
     USMFormatError(const char* err) : FormatError(err) { }
     USMFormatError(QString err) : FormatError(err.toStdString().c_str()) { }
 };
+
+class WWRiffFormatError : public FormatError {
+    public:
+    WWRiffFormatError(const char* err) : FormatError(err) { }
+    WWRiffFormatError(QString err) : FormatError(err.toStdString().c_str()) { }
+};

@@ -2,4 +2,7 @@
     <qresource prefix="/style">
         <file>Style.qss</file>
     </qresource>
+    <qresource prefix="/pcb">
+        <file>packed_codebooks_aoTuV_603.bin</file>
+    </qresource>
 </RCC>

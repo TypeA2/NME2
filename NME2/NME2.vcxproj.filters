@@ -75,6 +75,9 @@
     <ClCompile Include="NMESlider.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_WWRiffReader.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="NME2.h">
@@ -95,6 +98,9 @@
     <CustomBuild Include="Resource.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="WWRiffReader.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CripackReader.h">
@@ -104,9 +110,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WWRiffReader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NMESlider.h">

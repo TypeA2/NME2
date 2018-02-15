@@ -2,9 +2,9 @@
 
 #include "NME2.h"
 
-WWRiffReader::WWRiffReader(QFileInfo file, std::map<uint32_t, QIcon>& icons) :
-    infile(file.canonicalFilePath().toStdString().c_str(), std::ios::binary | std::ios::in),
-    file(file),
+WWRiffReader::WWRiffReader(std::string fpath, std::map<uint32_t, QIcon>& icons, uint64_t index, bool play) : QWidget(),
+    infile(fpath, std::ios::binary | std::ios::in),
+    file(fpath.c_str()),
     file_icons(icons) {
 
     while (!infile.eof())  {
@@ -44,10 +44,11 @@ std::vector<QStandardItem*> WWRiffReader::file_contents() {
 
     uint32_t i = 0;
     for (WWRiffFile f : file_table) {
-        QStandardItem* item = new QStandardItem(file.baseName() + "_" + QString::number(i++));
+        QStandardItem* item = new QStandardItem(file.baseName() + "_" + QString::number(i));
         item->setEditable(false);
         item->setIcon(file_icons[NME2::TypeAudio]);
         item->setData(QVariant::fromValue(this), NME2::ReaderRole);
+        item->setData(QVariant::fromValue(f), NME2::EmbeddedRole);
         item->setData("WWRiff", NME2::ReaderTypeRole);
 
         result.push_back(item);

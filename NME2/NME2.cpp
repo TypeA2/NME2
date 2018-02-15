@@ -158,7 +158,7 @@ std::vector<QStandardItem*> NME2::scan_file_contents(QFileInfo &file) {
 
         return reader->file_contents();
     } else if (file.completeSuffix() == "wsp" || file.completeSuffix() == "wem") {
-        WWRiffReader* reader = new WWRiffReader(file, file_icons);
+        WWRiffReader* reader = new WWRiffReader(file.canonicalFilePath().toStdString(), file_icons);
 
         return reader->file_contents();
     }
@@ -251,6 +251,14 @@ void NME2::check_model_selection(QModelIndex& selected) {
             } catch (const USMFormatError& e) {
                 std::cout << "USMPlayer error: " << e.what() << std::endl;
             }
+        } else if (ends_with(fname, ".wem")) {
+            try {
+                WWRiffReader* player = new WWRiffReader(path, file_icons, true);
+
+                active_item_layout->addWidget(player);
+            } catch (const WWRiffFormatError& e) {
+                std::cout << "WWRiffReader error: " << e.what() << std::endl;
+            }
         }
     } else if (selected.data(ReaderTypeRole).toString() == "Cripack") {
         QVariant data = selected.data(EmbeddedRole);
@@ -261,5 +269,7 @@ void NME2::check_model_selection(QModelIndex& selected) {
 
             std::cout << file.file_size << " " << file.extract_size << std::endl;
         }
+    } else if (selected.data(ReaderTypeRole).toString() == "WWRiff") {
+        WWRiffReader::WW
     }
 }

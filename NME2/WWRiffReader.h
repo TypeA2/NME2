@@ -3,17 +3,25 @@
 #include "Error.h"
 #include "BitManipulation.h"
 
+#include <QWidget>
 #include <QFileInfo>
 #include <QStandardItemModel>
 
 #include <fstream>
 
-class WWRiffReader {
+class WWRiffReader : public QWidget {
+    Q_OBJECT
+
     public:
-    explicit WWRiffReader(QFileInfo file, std::map<uint32_t, QIcon>& icons);
+    explicit WWRiffReader(std::string fpath, std::map<uint32_t, QIcon>& icons, uint64_t index = 0, bool play = false);
     ~WWRiffReader() {
         infile.close();
     }
+
+    struct WWRiffFile {
+        uint64_t size;
+        uint64_t offset;
+    };
 
     std::vector<QStandardItem*> file_contents();
 
@@ -22,10 +30,7 @@ class WWRiffReader {
     QFileInfo file;
     std::map<uint32_t, QIcon>& file_icons;
 
-    struct WWRiffFile {
-        uint64_t size;
-        uint64_t offset;
-    };
+    
 
     std::vector<WWRiffFile> file_table;
 };
